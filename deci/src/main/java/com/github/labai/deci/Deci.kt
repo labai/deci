@@ -1,6 +1,29 @@
+/*
+MIT License
+
+Copyright (c) 2020 Augustus
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
 package com.github.labai.deci
 
-import java.lang.Integer.min
+import com.github.labai.deci.Deci.DeciContext
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.math.RoundingMode.HALF_UP
@@ -29,8 +52,7 @@ import kotlin.math.max
  *   eq - comparison between numbers (various types, including null)
  *
  */
-
-class Deci @JvmOverloads constructor(decimal: BigDecimal, private val context: DeciContext = defaultDeciContext) : Number(), Comparable<Deci> {
+class Deci @JvmOverloads constructor(decimal: BigDecimal, internal val context: DeciContext = defaultDeciContext) : Number(), Comparable<Deci> {
 
     constructor(str: String) : this(BigDecimal(str))
     constructor(int: Int) : this(BigDecimal(int))
@@ -47,11 +69,10 @@ class Deci @JvmOverloads constructor(decimal: BigDecimal, private val context: D
     }
 
     private val decimal: BigDecimal = when {
-        decimal.signum() == 0 -> BigDecimal.ZERO
         decimal.scale() < 0 -> decimal.setScale(0, context.roundingMode)
         decimal.scale() > context.scale -> {
             val zeros = max(0, decimal.scale() - decimal.precision())
-            val scale = max(context.scale, min(zeros + context.precision, decimal.scale()))
+            val scale = max(context.scale, Integer.min(zeros + context.precision, decimal.scale()))
             decimal.setScale(scale, context.roundingMode)
         }
         else -> decimal
@@ -129,25 +150,32 @@ class Deci @JvmOverloads constructor(decimal: BigDecimal, private val context: D
         return max(context.scale, context.precision + divisorIntDigits - thisIntDigits)
     }
 
+    // for internal usage - explicitly call from extension functions for nullables to avoid recursive loops by mistake
+    internal fun plusInternal(other: BigDecimal): Deci = Deci(decimal.add(other), context)
+    internal fun minusInternal(other: BigDecimal): Deci = Deci(decimal.subtract(other), context)
+    internal fun timesInternal(other: BigDecimal): Deci = Deci(decimal.multiply(other), context)
+    internal fun divInternal(other: BigDecimal): Deci = Deci(decimal.divide(other, calcDivScale(other), context.roundingMode), context)
+    internal fun remInternal(other: BigDecimal): Deci = Deci(decimal.remainder(other), context)
+
     companion object {
-        private val defaultDeciContext = DeciContext(20, HALF_UP, 20)
+        internal val defaultDeciContext = DeciContext(20, HALF_UP, 20)
 
         private val d0 = Deci(0)
         private val d1 = Deci(1)
 
         fun valueOf(int: Int): Deci {
-            return when (int) { 0 -> d0; 1 -> d1; else -> Deci(int) }
+            return when(int) { 0 -> d0; 1 -> d1; else -> Deci(int) }
         }
 
         fun valueOf(long: Long): Deci {
-            return when (long) { 0L -> d0; 1L -> d1; else -> Deci(long) }
+            return when(long) { 0L -> d0; 1L -> d1; else -> Deci(long) }
         }
     }
 }
 
 infix fun Deci?.round(scale: Int): Deci? = this?.round(scale)
 infix fun Deci?.eq(other: Deci?): Boolean = if (this == null || other == null) this == other else this.compareTo(other) == 0
-infix fun Deci?.eq(other: BigDecimal?): Boolean = if (this == null || other == null) (this == null && other == null) else toBigDecimal().compareTo(other) == 0
+infix fun Deci?.eq(other: BigDecimal?): Boolean = if (this == null || other == null) (this == null && other == null) else this.toBigDecimal().compareTo(other) == 0
 infix fun Deci?.eq(other: Number?): Boolean = if (this == null || other == null) (this == null && other == null) else this.compareTo(other) == 0
 
 fun Deci?.toBigDecimal(): BigDecimal? = this?.toBigDecimal()
@@ -173,11 +201,17 @@ val Long.deci: Deci
     inline get() = Deci.valueOf(this)
 
 //
+// String extensions
+//
+val String.deci: Deci
+    inline get() = Deci(this)
+
+//
 // additional Deci methods
 //
 @Suppress("USELESS_CAST")
 fun Deci.Companion.valueOf(number: Number): Deci {
-    return when (number) {
+    return when(number) {
         is Deci -> number
         is BigDecimal -> Deci(number)
         is Int -> valueOf(number as Int)
@@ -190,9 +224,23 @@ fun Deci.Companion.valueOf(number: Number): Deci {
     }
 }
 
+fun Deci.Companion.valueOf(number: Number, deciContext: DeciContext): Deci {
+    return when(number) {
+        is Deci -> if (deciContext == number.context) number else Deci(number.toBigDecimal(), deciContext)
+        is BigDecimal -> Deci(number, deciContext)
+        is Int -> Deci(number.toLong().toBigDecimal(), deciContext)
+        is Long -> Deci(number.toBigDecimal(), deciContext)
+        is Double -> Deci(BigDecimal.valueOf(number), deciContext)
+        is Float -> Deci(BigDecimal .valueOf(number.toDouble()), deciContext)
+        is Short -> Deci(number.toLong().toBigDecimal(), deciContext)
+        is Byte -> Deci(number.toLong().toBigDecimal(), deciContext)
+        else -> Deci(BigDecimal(number.toString()), deciContext)
+    }
+}
+
 @Suppress("USELESS_CAST")
 operator fun Deci.compareTo(other: Number): Int {
-    return when (other) {
+    return when(other) {
         is Deci -> compareTo(other as Deci)
         is BigDecimal -> compareTo(other.deci)
         is Int -> compareTo(other.deci)

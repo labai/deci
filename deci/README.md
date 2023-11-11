@@ -10,9 +10,9 @@ But unfortunately, a code, written with BigDecimals, is ugly, difficult to read.
 In addition, BigDecimal has pitfalls (e.g. equals, lose scale on division).
 
 Luckily, kotlin have operators (- + * /), which should improve readability.
-Unfortunately, it still have some problems, derived from BigDecimal, an example:
+Unfortunately, it still has some problems, derived from BigDecimal, an example:
 - div (division) use original scale and the HALF_EVEN rounding is used,
-which is not useful in most of situations. Thus, normally you can't use div 
+which is not useful in most of the situations. Thus, normally you can't use div 
 operator (/) in your formulas
 - equality check takes into account a scale, so 2.0 != 2.00. So you need to use compareTo instead of "==" check
 
@@ -49,3 +49,34 @@ Use maven dependency:
     <version>0.0.1</version>
 </dependency>
 ```
+
+### Nullables
+
+#### Extension deciExpr
+
+By default, nullable variables are not allowed to be used in math expressions in kotlin.
+To keep consistent behaviour, _Deci_ also doesn't allow nullables in expressions.
+
+But you may use `deciExpr` extension to allow nullables in math expression with such logic,
+that if any of part is null, then result is null.
+
+Example:
+```kotlin
+  val num: Deci? = null
+  val res: Deci? = deciExpr {
+     3.deci + 2.deci * num
+  }
+  assertNull(res)
+```
+
+#### Extension orZero
+
+In case you want nulls treat as zeros, you may just use an extension `Deci?.orZero()`.
+
+Example:
+```kotlin
+  val num: Deci? = null
+  val res: Deci = 3.deci + 2.deci * num.orZero()
+  assertEquals(3.deci, res)
+```
+|
