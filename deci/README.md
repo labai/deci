@@ -79,4 +79,23 @@ Example:
   val res: Deci = 3.deci + 2.deci * num.orZero()
   assertEquals(3.deci, res)
 ```
-|
+
+### DeciContext
+
+In case default scale and rounding (20 and round_up) is not suitable, it is possible to use own setup.
+When creating a Deci number, provide additional parameter - DeciContext.
+
+It has such fields:
+- scale - indicates, how many digits need to keep after dot;
+- precision - indicates, how many significant digits to keep, when number is small and scale is not enough;
+- roundingMode - rounding mode (java.math.RoundingMode).
+
+Example:
+```kotlin
+DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+```
+means to keep 4 numbers after dot, but not less than 3 significant number, e.g.:
+- 123.1234 - number big enough, keep 4 digits after dot
+- 0.000123 - number is smaller and 4 digits after dot is not enough - keep minimum 3 significant digits
+
+Default is ```DeciContext(20, HALF_UP, 20)```

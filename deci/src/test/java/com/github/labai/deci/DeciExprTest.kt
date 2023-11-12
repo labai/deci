@@ -280,17 +280,17 @@ class DeciExprTest {
         val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
 
         var dec: Deci? = deciExpr(ctx4) { 1 }
-        assertEquals(ctx4, dec!!.context)
+        assertEquals(ctx4, dec!!.deciContext)
 
         dec = deciExpr(ctx4) { 1.deci + "2.123456".deci }
-        assertEquals(ctx4, dec!!.context)
+        assertEquals(ctx4, dec!!.deciContext)
         assertEquals("3.1235", dec.toString())
 
         dec = Deci.valueOf(2, ctx4)
-        assertEquals(ctx4, dec.context)
+        assertEquals(ctx4, dec.deciContext)
 
         dec = Deci.valueOf(2.deci, ctx4)
-        assertEquals(ctx4, dec.context)
+        assertEquals(ctx4, dec.deciContext)
     }
 
     @Test
@@ -305,8 +305,17 @@ class DeciExprTest {
         // with bigger context (40), we should keep the scale inside expression
         val ctx40 = DeciContext(scale = 40, roundingMode = HALF_UP, precision = 30)
         val dec = deciExpr(ctx40) { "1.0123456789012345678901234567890123456789".deci * "1e10".deci }
-        assertEquals(ctx40, dec!!.context)
+        assertEquals(ctx40, dec!!.deciContext)
         assertEquals("10123456789.012345678901234567890123456789", dec.toString())
+    }
+
+    @Test
+    fun test_deciContext_whenProvidedAndNullable_thenUseIt() {
+        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+        val num1: Deci? = "1.0123456789012345678901234567890123456789".deci // nullable - will use times() from deciExpr
+        val dec = deciExpr(ctx4) { num1 * "1e10".deci }
+        assertEquals(ctx4, dec!!.deciContext)
+        assertEquals("10123456789.0123", dec.toString())
     }
 
     @Test
@@ -315,7 +324,25 @@ class DeciExprTest {
         val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
         val dec1 = Deci("2".toBigDecimal(), ctx4)
         val dec = deciExpr { dec1 + 1 }
-        assertEquals(ctx4, dec!!.context)
+        assertEquals(ctx4, dec!!.deciContext)
+    }
+
+    @Test
+    fun test_deciContext_access_from_lambda() {
+        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+        val dec = deciExpr(ctx4) { Deci.valueOf(2, deciContext) }
+        assertEquals(ctx4, dec!!.deciContext)
+    }
+
+    @Test
+    fun test_exceptions() {
+        val res: Deci? = try {
+            deciExpr { "1.2".deci / 0.deci }
+            throw IllegalStateException("Expected div/0")
+        } catch (e: Exception) {
+            null
+        }
+        assertNull(res)
     }
 
     private fun assertDecEquals(dec1: Deci, dec2: Deci?) = assertTrue(dec1 eq dec2, "Decimals are not equal ($dec1 vs $dec2)")

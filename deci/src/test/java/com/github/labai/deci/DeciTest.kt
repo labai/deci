@@ -31,6 +31,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -104,44 +105,47 @@ class DeciTest {
         assertDecEquals("1.12", Deci("1.115") round 2)
     }
 
-/*
-    @Test
-    fun test_nulls() {
-        val d1: Deci? = null
-        val d2: Deci? = Deci("12.2") + d1
-        assertNull(d2)
-
-        val d3 = Deci("12.2") / 12 * d1 ?: 0.deci
-        assertEquals(0.deci, d3)
-
-        val int1: Int? = null
-        assertNull(1.deci + int1)
-
-        val long1: Int? = null
-        assertNull(1.deci / long1)
-
-        val d4 = Deci("12.2") / 12 * d1
-        assertNull(d4 round 2)
-        assertNull(d4 bigd 2)
-        assertNull(d4.toBigDecimal())
-
-        val bd1: BigDecimal? = null
-        assertTrue(d4 eq bd1)
-        assertFalse(d4 eq BigDecimal.ONE)
-
-    }
-*/
     @Test
     fun test_valueOf() {
+        assertSame(0.deci, Deci.valueOf(0))
+        assertSame(0.deci, Deci.valueOf(0L))
+
         assertEquals(2.deci, Deci.valueOf(2.toByte()))
         assertEquals(2.deci, Deci.valueOf(2.toShort()))
+        assertEquals(2.deci, Deci.valueOf(2))
+        assertEquals(2.deci, Deci.valueOf(2L))
         assertEquals(2.deci, Deci.valueOf(2.toBigDecimal()))
+        assertEquals(2.deci, Deci.valueOf("2"))
 
-        assertDecEquals(Deci("2.2"), Deci.valueOf(2.2) round 10)
-        assertDecEquals(Deci("2.2"), Deci.valueOf(2.2.toFloat()) round 5)
+        assertDecEquals("2.2".deci, Deci.valueOf(2.2) round 10)
+        assertDecEquals("2.2".deci, Deci.valueOf(2.2.toFloat()) round 5)
 
         // floats are not precise
-        assertFalse(Deci("2.2") eq Deci.valueOf(2.2.toFloat()))
+        assertFalse("2.2".deci eq Deci.valueOf(2.2.toFloat()))
+    }
+
+    @Test
+    fun test_valueOf_withContext() {
+        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+
+        assertEquals(0.deci, Deci.valueOf(0, ctx4))
+        assertEquals(0.deci, Deci.valueOf(0L, ctx4))
+
+        assertEquals(2.deci, Deci.valueOf(2.deci, ctx4))
+        assertEquals(2.deci, Deci.valueOf(2.toByte(), ctx4))
+        assertEquals(2.deci, Deci.valueOf(2.toShort(), ctx4))
+        assertEquals(2.deci, Deci.valueOf(2, ctx4))
+        assertEquals(2.deci, Deci.valueOf(2L, ctx4))
+        assertEquals(2.deci, Deci.valueOf(2.toBigDecimal(), ctx4))
+        assertEquals(2.deci, Deci.valueOf("2", ctx4))
+
+        assertEquals(ctx4, Deci.valueOf(2.deci, ctx4).deciContext)
+        assertEquals(ctx4, Deci.valueOf(2.toByte(), ctx4).deciContext)
+        assertEquals(ctx4, Deci.valueOf(2.toShort(), ctx4).deciContext)
+        assertEquals(ctx4, Deci.valueOf(2, ctx4).deciContext)
+        assertEquals(ctx4, Deci.valueOf(2L, ctx4).deciContext)
+        assertEquals(ctx4, Deci.valueOf(2.toBigDecimal(), ctx4).deciContext)
+        assertEquals(ctx4, Deci.valueOf("2", ctx4).deciContext)
     }
 
     @Test
@@ -254,8 +258,8 @@ class DeciTest {
     @Test
     fun test_round_precedence() {
         // round should be on result after all operators executed, not for last argument
-        assertDecEquals(Deci("1.2"), (Deci("1.16") - (Deci("0.02") round 1) round 1)) // when rounded last argument
-        assertDecEquals(Deci("1.1"), Deci("1.16") - Deci("0.02") round 1) // when rounded result
+        assertDecEquals("1.2".deci, ("1.16".deci - ("0.02".deci round 1) round 1)) // when rounded last argument
+        assertDecEquals("1.1".deci, "1.16".deci - "0.02".deci round 1) // when rounded result
     }
 
     @Test
@@ -273,12 +277,20 @@ class DeciTest {
     }
 
     @Test
+    fun test_applyDeciContext() {
+        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+        val dec1 = Deci.valueOf("1.0123456789")
+        val res = dec1.applyDeciContext(ctx4)
+        assertEquals(ctx4, res.deciContext)
+        assertEquals("1.0123", res.toString())
+    }
+
+    @Test
     fun test_demo1() {
         class Demo1(val quantity: Deci, val price: Deci, val fee: Deci) {
             fun getPercent1(): Deci = (price * quantity - fee) * 100 / (price * quantity) round 2
         }
-
-        val demo = Demo1(Deci("12.2"), Deci("55.97"), Deci("15.5"))
+        val demo = Demo1("12.2".deci, "55.97".deci, "15.5".deci)
 
         val res2: BigDecimal = ((demo.price * demo.quantity - demo.fee) * 100 / (demo.price * demo.quantity) round 8).toBigDecimal()
 

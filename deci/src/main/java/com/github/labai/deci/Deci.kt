@@ -51,12 +51,31 @@ import kotlin.math.max
  *   round - round number by provided number of decimal, return Deci
  *   eq - comparison between numbers (various types, including null)
  *
+ * DeciContext
+ *
+ * In case default scale and rounding (20 and round_up) is not suitable, it is possible to use own setup.
+ * When creating Deci, provide additional parameter - DeciContext (similar, but different to MathContext).
+ *
+ * It has such fields:
+ * - scale - indicates, how many digits need to keep after dot
+ * - precision - indicates, how many significant digits to keep, when number is small and scale is not enough
+ * - roundingMode - rounding mode (java.math.RoundingMode)
+ *
+ * Example:
+ *   DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+ *   - means to keep 4 numbers after dot, but not less than 3 significant number, e.g.:
+ *      123.1234 - number big enough, keep 4 digits after dot
+ *      0.000123 - number is smaller and 4 digits after dot is not enough - keep minimum 3 significant digits
+ *
+ * Default is
+ *   DeciContext(20, HALF_UP, 20)
+ *
  */
-class Deci @JvmOverloads constructor(decimal: BigDecimal, internal val context: DeciContext = defaultDeciContext) : Number(), Comparable<Deci> {
+class Deci @JvmOverloads constructor(decimal: BigDecimal, internal val deciContext: DeciContext = defaultDeciContext) : Number(), Comparable<Deci> {
 
     constructor(str: String) : this(BigDecimal(str))
     constructor(int: Int) : this(BigDecimal(int))
-    constructor(long: Long) : this(BigDecimal(long))
+    constructor(long: Long) : this(long.toBigDecimal())
 
     class DeciContext(val scale: Int, val roundingMode: RoundingMode, val precision: Int) {
         constructor(scale: Int, roundingMode: RoundingMode = HALF_UP) : this(scale, roundingMode, scale)
@@ -66,26 +85,27 @@ class Deci @JvmOverloads constructor(decimal: BigDecimal, internal val context: 
             check(precision >= 1) { "precision must be >= 1 (is $precision)" }
             check(precision <= 2000) { "precision must be <= 2000 (is $precision)" }
         }
+        override fun toString(): String = "DeciContext($scale:$precision:${roundingMode})"
     }
 
     private val decimal: BigDecimal = when {
-        decimal.scale() < 0 -> decimal.setScale(0, context.roundingMode)
-        decimal.scale() > context.scale -> {
+        decimal.scale() < 0 -> decimal.setScale(0, deciContext.roundingMode)
+        decimal.scale() > deciContext.scale -> {
             val zeros = max(0, decimal.scale() - decimal.precision())
-            val scale = max(context.scale, Integer.min(zeros + context.precision, decimal.scale()))
-            decimal.setScale(scale, context.roundingMode)
+            val scale = max(deciContext.scale, Integer.min(zeros + deciContext.precision, decimal.scale()))
+            decimal.setScale(scale, deciContext.roundingMode)
         }
         else -> decimal
     }
     private var _hashCode: Int? = null
 
-    operator fun unaryMinus(): Deci = Deci(decimal.negate(), context)
+    operator fun unaryMinus(): Deci = Deci(decimal.negate(), deciContext)
 
-    operator fun plus(other: BigDecimal): Deci = Deci(decimal.add(other), context)
-    operator fun minus(other: BigDecimal): Deci = Deci(decimal.subtract(other), context)
-    operator fun times(other: BigDecimal): Deci = Deci(decimal.multiply(other), context)
-    operator fun div(other: BigDecimal): Deci = Deci(decimal.divide(other, calcDivScale(other), context.roundingMode), context)
-    operator fun rem(other: BigDecimal): Deci = Deci(decimal.remainder(other), context)
+    operator fun plus(other: BigDecimal): Deci = Deci(decimal.add(other), deciContext)
+    operator fun minus(other: BigDecimal): Deci = Deci(decimal.subtract(other), deciContext)
+    operator fun times(other: BigDecimal): Deci = Deci(decimal.multiply(other), deciContext)
+    operator fun div(other: BigDecimal): Deci = Deci(decimal.divide(other, calcDivScale(other), deciContext.roundingMode), deciContext)
+    operator fun rem(other: BigDecimal): Deci = Deci(decimal.remainder(other), deciContext)
 
     operator fun plus(other: Deci): Deci = plus(other.decimal)
     operator fun minus(other: Deci): Deci = minus(other.decimal)
@@ -106,7 +126,8 @@ class Deci @JvmOverloads constructor(decimal: BigDecimal, internal val context: 
     operator fun rem(other: Long): Deci = rem(BigDecimal(other))
 
     override fun toByte(): Byte = decimal.toByte()
-    override fun toChar(): Char = decimal.toChar()
+    @Deprecated(message = "Deprecated since kotlin 1.9")
+    override fun toChar(): Char = decimal.toInt().toChar()
     override fun toDouble(): Double = decimal.toDouble()
     override fun toFloat(): Float = decimal.toFloat()
     override fun toInt(): Int = decimal.toInt()
@@ -115,8 +136,10 @@ class Deci @JvmOverloads constructor(decimal: BigDecimal, internal val context: 
 
     fun toBigDecimal(): BigDecimal = decimal
 
+    fun applyDeciContext(deciContext: DeciContext): Deci = if (this.deciContext == deciContext) this else Deci(this.decimal, deciContext)
+
     /** round to n decimals. Unlike BigDecimal.round(), here parameter 'scale' means scale, not precision */
-    infix fun round(scale: Int): Deci = Deci(this.decimal.setScale(scale, context.roundingMode))
+    infix fun round(scale: Int): Deci = Deci(this.decimal.setScale(scale, deciContext.roundingMode))
 
     override fun compareTo(other: Deci): Int = decimal.compareTo(other.decimal)
 
@@ -146,29 +169,32 @@ class Deci @JvmOverloads constructor(decimal: BigDecimal, internal val context: 
         val thisIntDigits = if (decimal.signum() == 0) 1 else decimal.precision() - decimal.scale()
         val divisorIntDigits = if (divisor.signum() == 0) 1 else divisor.precision() - divisor.scale()
         if (divisorIntDigits < 0)
-            return max(decimal.scale(), context.scale) // dividing will increase result
-        return max(context.scale, context.precision + divisorIntDigits - thisIntDigits)
+            return max(decimal.scale(), deciContext.scale) // dividing will increase result
+        return max(deciContext.scale, deciContext.precision + divisorIntDigits - thisIntDigits)
     }
 
-    // for internal usage - explicitly call from extension functions for nullables to avoid recursive loops by mistake
-    internal fun plusInternal(other: BigDecimal): Deci = Deci(decimal.add(other), context)
-    internal fun minusInternal(other: BigDecimal): Deci = Deci(decimal.subtract(other), context)
-    internal fun timesInternal(other: BigDecimal): Deci = Deci(decimal.multiply(other), context)
-    internal fun divInternal(other: BigDecimal): Deci = Deci(decimal.divide(other, calcDivScale(other), context.roundingMode), context)
-    internal fun remInternal(other: BigDecimal): Deci = Deci(decimal.remainder(other), context)
+    // for internal usage - explicitly call from deciExpr to avoid recursive loops by mistake
+    internal fun plusInternal(other: BigDecimal): Deci = Deci(decimal.add(other), deciContext)
+    internal fun minusInternal(other: BigDecimal): Deci = Deci(decimal.subtract(other), deciContext)
+    internal fun timesInternal(other: BigDecimal): Deci = Deci(decimal.multiply(other), deciContext)
+    internal fun divInternal(other: BigDecimal): Deci = Deci(decimal.divide(other, calcDivScale(other), deciContext.roundingMode), deciContext)
+    internal fun remInternal(other: BigDecimal): Deci = Deci(decimal.remainder(other), deciContext)
 
     companion object {
         internal val defaultDeciContext = DeciContext(20, HALF_UP, 20)
 
-        private val d0 = Deci(0)
-        private val d1 = Deci(1)
+        private val d0 = Deci(0L)
 
         fun valueOf(int: Int): Deci {
-            return when(int) { 0 -> d0; 1 -> d1; else -> Deci(int) }
+            return when (int) {
+                0 -> d0
+                in 1..10 -> Deci(int.toLong()) // reuse cached bigDecimal
+                else -> Deci(int)
+            }
         }
 
         fun valueOf(long: Long): Deci {
-            return when(long) { 0L -> d0; 1L -> d1; else -> Deci(long) }
+            return if (long == 0L) d0 else Deci(long)
         }
     }
 }
@@ -209,36 +235,38 @@ val String.deci: Deci
 //
 // additional Deci methods
 //
-@Suppress("USELESS_CAST")
-fun Deci.Companion.valueOf(number: Number): Deci {
-    return when(number) {
-        is Deci -> number
-        is BigDecimal -> Deci(number)
-        is Int -> valueOf(number as Int)
-        is Long -> valueOf(number as Long)
-        is Double -> Deci(BigDecimal.valueOf(number))
-        is Float -> Deci(BigDecimal.valueOf(number.toDouble()))
-        is Short -> valueOf(number.toInt() as Int)
-        is Byte -> valueOf(number.toInt() as Int)
-        else -> Deci(BigDecimal(number.toString()))
+fun Deci.Companion.valueOf(num: Number): Deci {
+    return when(num) {
+        is Deci -> num
+        is BigDecimal -> Deci(num)
+        is Int -> valueOf(num as Int)
+        is Long -> valueOf(num as Long)
+        is Double -> Deci(BigDecimal.valueOf(num))
+        is Float -> Deci(BigDecimal.valueOf(num.toDouble()))
+        is Short -> valueOf(num.toInt() as Int)
+        is Byte -> valueOf(num.toInt() as Int)
+        else -> Deci(BigDecimal(num.toString()))
     }
 }
 
-fun Deci.Companion.valueOf(number: Number, deciContext: DeciContext): Deci {
-    return when(number) {
-        is Deci -> if (deciContext == number.context) number else Deci(number.toBigDecimal(), deciContext)
-        is BigDecimal -> Deci(number, deciContext)
-        is Int -> Deci(number.toLong().toBigDecimal(), deciContext)
-        is Long -> Deci(number.toBigDecimal(), deciContext)
-        is Double -> Deci(BigDecimal.valueOf(number), deciContext)
-        is Float -> Deci(BigDecimal .valueOf(number.toDouble()), deciContext)
-        is Short -> Deci(number.toLong().toBigDecimal(), deciContext)
-        is Byte -> Deci(number.toLong().toBigDecimal(), deciContext)
-        else -> Deci(BigDecimal(number.toString()), deciContext)
+fun Deci.Companion.valueOf(str: String): Deci = Deci(str.toBigDecimal())
+
+fun Deci.Companion.valueOf(num: Number, deciContext: DeciContext): Deci {
+    return when(num) {
+        is Deci -> if (deciContext == num.deciContext) num else Deci(num.toBigDecimal(), deciContext)
+        is BigDecimal -> Deci(num, deciContext)
+        is Int -> Deci(num.toLong().toBigDecimal(), deciContext)
+        is Long -> Deci(num.toBigDecimal(), deciContext)
+        is Double -> Deci(BigDecimal.valueOf(num), deciContext)
+        is Float -> Deci(BigDecimal.valueOf(num.toDouble()), deciContext)
+        is Short -> Deci(num.toLong().toBigDecimal(), deciContext)
+        is Byte -> Deci(num.toLong().toBigDecimal(), deciContext)
+        else -> Deci(BigDecimal(num.toString()), deciContext)
     }
 }
 
-@Suppress("USELESS_CAST")
+fun Deci.Companion.valueOf(str: String, deciContext: DeciContext): Deci = Deci(str.toBigDecimal(), deciContext)
+
 operator fun Deci.compareTo(other: Number): Int {
     return when(other) {
         is Deci -> compareTo(other as Deci)
@@ -256,7 +284,7 @@ operator fun Deci.compareTo(other: Number): Int {
 //
 // Iterable extensions
 //
-@kotlin.jvm.JvmName("sumOfDeci")
+@JvmName("sumOfDeci")
 inline fun <T> Iterable<T>.sumOf(selector: (T) -> Deci): Deci {
     var sum: Deci = 0.deci
     for (element in this) {
