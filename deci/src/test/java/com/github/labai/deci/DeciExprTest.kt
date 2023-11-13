@@ -59,7 +59,7 @@ class DeciExprTest {
         assertNull(deciExpr { 1L * num })
         assertNull(deciExpr { 1L / num })
 
-        // Kotlin: Overload resolution ambiguity - use long instead
+        // [INFO] Kotlin: Overload resolution ambiguity - use long instead
         // assertNull(deciExpr { num + 1 })
         // assertNull(deciExpr { num - 1 })
         // assertNull(deciExpr { num * 1 })
@@ -105,7 +105,7 @@ class DeciExprTest {
         assertDecEquals(50.deci, deciExpr { 10L * num })
         assertDecEquals(2.deci, deciExpr { 10L / num })
 
-        // Kotlin: Overload resolution ambiguity - use long instead
+        // [INFO] Kotlin: Overload resolution ambiguity - use long instead
         // assertDecEquals(15.deci, deciExpr { num + 10 })
         // assertDecEquals((-5).deci, deciExpr { num - 10 })
         // assertDecEquals(50.deci, deciExpr { num * 10 })
@@ -151,7 +151,7 @@ class DeciExprTest {
         assertDecEquals(50.deci, deciExpr { 10L * num })
         assertDecEquals(2.deci, deciExpr { 10L / num })
 
-        // Kotlin: Overload resolution ambiguity - use long instead
+        // [INFO] Kotlin: Overload resolution ambiguity - use long instead
         // assertDecEquals(15.deci, deciExpr { num + 10 })
         // assertDecEquals((-5).deci, deciExpr { num - 10 })
         // assertDecEquals(50.deci, deciExpr { num * 10 })
@@ -197,7 +197,7 @@ class DeciExprTest {
         assertDecEquals(50.deci, deciExpr { 10L * num })
         assertDecEquals(2.deci, deciExpr { 10L / num  })
 
-        // Kotlin: Overload resolution ambiguity - use long instead
+        // [INFO] Kotlin: Overload resolution ambiguity - use long instead
         // assertDecEquals(15.deci, deciExpr { num + 10 })
         // assertDecEquals((-5).deci, deciExpr { num - 10 })
         // assertDecEquals(50.deci, deciExpr { num * 10 })
@@ -243,7 +243,7 @@ class DeciExprTest {
         assertDecEquals(50.deci, deciExpr { 10L * num })
         assertDecEquals(2.deci, deciExpr { 10L / num })
 
-        // Kotlin: Overload resolution ambiguity - use long instead
+        // [INFO] Kotlin: Overload resolution ambiguity - use long instead
         // assertDecEquals(15.deci, deciExpr { num + 10 })
         // assertDecEquals((-5).deci, deciExpr { num - 10 })
         // assertDecEquals(50.deci, deciExpr { num * 10 })
@@ -276,6 +276,16 @@ class DeciExprTest {
     }
 
     @Test
+    fun test_with_negative() {
+        val num: Deci? = 5.deci
+        assertDecEquals((-5).deci, deciExpr { -num })
+        assertDecEquals((-5).deci, deciExpr { -(5.deci) })
+        assertDecEquals((-5).deci, deciExpr { -5 })
+        assertDecEquals((-5).deci, deciExpr { -5L })
+        assertDecEquals((-5).deci, deciExpr { "-5".toBigDecimal() })
+    }
+
+    @Test
     fun test_deciContext_simple() {
         val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
 
@@ -295,8 +305,10 @@ class DeciExprTest {
 
     @Test
     fun test_deciContext_whenNotProvided_thenUseDefault() {
+        val defaultCtx = 1.deci.deciContext
         // default is 20, we are losing decimals after 20+ digits inside expression
         val dec = deciExpr { "1.0123456789012345678901234567890123456789".deci * "1e10".deci }
+        assertEquals(defaultCtx, dec!!.deciContext)
         assertEquals("10123456789.0123456789", dec.toString())
     }
 
@@ -309,22 +321,44 @@ class DeciExprTest {
         assertEquals("10123456789.012345678901234567890123456789", dec.toString())
     }
 
+    // [INFO]
+    // when original scale is bigger we are losing precision inside deciExpr.
+    // it could be possible to use original deciContext for multiply/div operations,
+    // but for consistency are using one from deciExpr
+    //
     @Test
-    fun test_deciContext_whenProvidedAndNullable_thenUseIt() {
+    fun test_deciContext_useFromDeciExpr_nullables() {
         val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+
         val num1: Deci? = "1.0123456789012345678901234567890123456789".deci // nullable - will use times() from deciExpr
         val dec = deciExpr(ctx4) { num1 * "1e10".deci }
         assertEquals(ctx4, dec!!.deciContext)
-        assertEquals("10123456789.0123", dec.toString())
+        // assertEquals("10123456789.0123", dec.toString()) // would be such if to keep original from num1
+        assertEquals("10123000000", dec.toString())
+
     }
 
     @Test
-    fun test_deciContext_whenNotProvidedAndDeci_thenUseOriginal() {
-        // when default (no context provided) - leave deciContext of original first deci element
+    fun test_deciContext_useFromDeciExpr_nonNullables() {
         val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
-        val dec1 = Deci("2".toBigDecimal(), ctx4)
-        val dec = deciExpr { dec1 + 1 }
+
+        // same for non-nullable
+        val num: Deci = "1.0123456789012345678901234567890123456789".deci // non-nullable - also use times() from deciExpr
+        val dec = deciExpr(ctx4) { num * "1e10".deci }
         assertEquals(ctx4, dec!!.deciContext)
+        assertEquals("10123000000", dec.toString())
+    }
+
+    @Test
+    fun test_deciContext_useFromDeciExpr_biggerScale() {
+        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+        val ctx40 = DeciContext(scale = 40, roundingMode = HALF_UP, precision = 30)
+
+        // if bigger precision - also apply from deciExpr
+        val num: Deci? = Deci.valueOf("1.012345", ctx4)
+        val dec = deciExpr(ctx40) { num * "1.0123465789".deci }
+        assertEquals(ctx40, dec!!.deciContext)
+        assertEquals("1.02479844182047", dec.toString())
     }
 
     @Test

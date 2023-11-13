@@ -77,7 +77,7 @@ class Deci @JvmOverloads constructor(decimal: BigDecimal, internal val deciConte
     constructor(int: Int) : this(BigDecimal(int))
     constructor(long: Long) : this(long.toBigDecimal())
 
-    class DeciContext(val scale: Int, val roundingMode: RoundingMode, val precision: Int) {
+    data class DeciContext(val scale: Int, val roundingMode: RoundingMode, val precision: Int) {
         constructor(scale: Int, roundingMode: RoundingMode = HALF_UP) : this(scale, roundingMode, scale)
         init {
             check(scale >= 0) { "scale must be >= 0 (is $scale)" }
@@ -101,30 +101,6 @@ class Deci @JvmOverloads constructor(decimal: BigDecimal, internal val deciConte
 
     operator fun unaryMinus(): Deci = Deci(decimal.negate(), deciContext)
 
-    operator fun plus(other: BigDecimal): Deci = Deci(decimal.add(other), deciContext)
-    operator fun minus(other: BigDecimal): Deci = Deci(decimal.subtract(other), deciContext)
-    operator fun times(other: BigDecimal): Deci = Deci(decimal.multiply(other), deciContext)
-    operator fun div(other: BigDecimal): Deci = Deci(decimal.divide(other, calcDivScale(other), deciContext.roundingMode), deciContext)
-    operator fun rem(other: BigDecimal): Deci = Deci(decimal.remainder(other), deciContext)
-
-    operator fun plus(other: Deci): Deci = plus(other.decimal)
-    operator fun minus(other: Deci): Deci = minus(other.decimal)
-    operator fun times(other: Deci): Deci = times(other.decimal)
-    operator fun div(other: Deci): Deci = div(other.decimal)
-    operator fun rem(other: Deci): Deci = rem(other.decimal)
-
-    operator fun plus(other: Int): Deci = plus(BigDecimal(other))
-    operator fun minus(other: Int): Deci = minus(BigDecimal(other))
-    operator fun times(other: Int): Deci = times(BigDecimal(other))
-    operator fun div(other: Int): Deci = div(BigDecimal(other))
-    operator fun rem(other: Int): Deci = rem(BigDecimal(other))
-
-    operator fun plus(other: Long): Deci = plus(BigDecimal(other))
-    operator fun minus(other: Long): Deci = minus(BigDecimal(other))
-    operator fun times(other: Long): Deci = times(BigDecimal(other))
-    operator fun div(other: Long): Deci = div(BigDecimal(other))
-    operator fun rem(other: Long): Deci = rem(BigDecimal(other))
-
     override fun toByte(): Byte = decimal.toByte()
     @Deprecated(message = "Deprecated since kotlin 1.9")
     override fun toChar(): Char = decimal.toInt().toChar()
@@ -143,14 +119,7 @@ class Deci @JvmOverloads constructor(decimal: BigDecimal, internal val deciConte
 
     override fun compareTo(other: Deci): Int = decimal.compareTo(other.decimal)
 
-    override fun toString(): String {
-        if (decimal.scale() == 0)
-            return decimal.toString()
-        var d = decimal.stripTrailingZeros()
-        if (d.scale() < 0)
-            d = d.setScale(0)
-        return d.toString()
-    }
+    override fun toString(): String = decimal.stripTrailingZeros().toPlainString()
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -173,7 +142,7 @@ class Deci @JvmOverloads constructor(decimal: BigDecimal, internal val deciConte
         return max(deciContext.scale, deciContext.precision + divisorIntDigits - thisIntDigits)
     }
 
-    // for internal usage - explicitly call from deciExpr to avoid recursive loops by mistake
+    // for internal usage - explicitly call to avoid recursive loops by mistake
     internal fun plusInternal(other: BigDecimal): Deci = Deci(decimal.add(other), deciContext)
     internal fun minusInternal(other: BigDecimal): Deci = Deci(decimal.subtract(other), deciContext)
     internal fun timesInternal(other: BigDecimal): Deci = Deci(decimal.multiply(other), deciContext)
@@ -198,6 +167,30 @@ class Deci @JvmOverloads constructor(decimal: BigDecimal, internal val deciConte
         }
     }
 }
+
+operator fun Deci.plus(other: BigDecimal): Deci = this.plusInternal(other)
+operator fun Deci.minus(other: BigDecimal): Deci = this.minusInternal(other)
+operator fun Deci.times(other: BigDecimal): Deci = this.timesInternal(other)
+operator fun Deci.div(other: BigDecimal): Deci = this.divInternal(other)
+operator fun Deci.rem(other: BigDecimal): Deci = this.remInternal(other)
+
+operator fun Deci.plus(other: Deci): Deci = this.plusInternal(other.toBigDecimal())
+operator fun Deci.minus(other: Deci): Deci = this.minusInternal(other.toBigDecimal())
+operator fun Deci.times(other: Deci): Deci = this.timesInternal(other.toBigDecimal())
+operator fun Deci.div(other: Deci): Deci = this.divInternal(other.toBigDecimal())
+operator fun Deci.rem(other: Deci): Deci = this.remInternal(other.toBigDecimal())
+
+operator fun Deci.plus(other: Int): Deci = this.plusInternal(other.toBigDecimal())
+operator fun Deci.minus(other: Int): Deci = this.minusInternal(other.toBigDecimal())
+operator fun Deci.times(other: Int): Deci = this.timesInternal(other.toBigDecimal())
+operator fun Deci.div(other: Int): Deci = this.divInternal(other.toBigDecimal())
+operator fun Deci.rem(other: Int): Deci = this.remInternal(other.toBigDecimal())
+
+operator fun Deci.plus(other: Long): Deci = this.plusInternal(other.toBigDecimal())
+operator fun Deci.minus(other: Long): Deci = this.minusInternal(other.toBigDecimal())
+operator fun Deci.times(other: Long): Deci = this.timesInternal(other.toBigDecimal())
+operator fun Deci.div(other: Long): Deci = this.divInternal(other.toBigDecimal())
+operator fun Deci.rem(other: Long): Deci = this.remInternal(other.toBigDecimal())
 
 infix fun Deci?.round(scale: Int): Deci? = this?.round(scale)
 infix fun Deci?.eq(other: Deci?): Boolean = if (this == null || other == null) this == other else this.compareTo(other) == 0

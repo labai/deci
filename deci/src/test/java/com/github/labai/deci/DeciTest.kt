@@ -85,7 +85,7 @@ class DeciTest {
         assertDecEquals("0.99179583412", d)
 
         val d2 = (BigDecimal.ONE - BigDecimal.ONE / BigDecimal(365)) * (BigDecimal.ONE - BigDecimal(2) / BigDecimal(365))
-        assertDecEquals("1", d2) // WRONG with original BigDecimal!
+        assertDecEquals("1", d2) // [INFO] WRONG with original BigDecimal!
 
         val d3 = 1.deci / Deci("1.23e10") * Deci("2.34e-10") * BigDecimal("1e20") round 11
         assertDecEquals("1.90243902439", d3)
@@ -122,6 +122,12 @@ class DeciTest {
 
         // floats are not precise
         assertFalse("2.2".deci eq Deci.valueOf(2.2.toFloat()))
+    }
+
+    @Test
+    fun test_int_long() {
+        assertDecEquals(10.deci, 5.deci + 5)
+        assertDecEquals(10.deci, 5.deci + 5L)
     }
 
     @Test
@@ -274,6 +280,8 @@ class DeciTest {
         assertEquals("12", Deci("12.0000").toString())
         assertEquals("1200", Deci("1200.0000").toString())
         assertEquals("1200000", Deci("12e5").toString())
+        assertEquals("0.00000000000000000000012", Deci("0.00000000000000000000012").toString())
+        assertEquals("12000", Deci("12000.0".toBigDecimal().setScale(-2)).toString())
     }
 
     @Test
@@ -283,6 +291,33 @@ class DeciTest {
         val res = dec1.applyDeciContext(ctx4)
         assertEquals(ctx4, res.deciContext)
         assertEquals("1.0123", res.toString())
+    }
+
+    @Test
+    fun test_all_operations() {
+        val num: Deci = 5.deci
+
+        assertDecEquals((-5).deci, -num)
+
+        assertDecEquals(15.deci, num + 10L)
+        assertDecEquals((-5).deci, num - 10L)
+        assertDecEquals(50.deci, num * 10L)
+        assertDecEquals("0.5".deci, num / 10L)
+
+        assertDecEquals(15.deci, num + 10)
+        assertDecEquals((-5).deci, num - 10)
+        assertDecEquals(50.deci, num * 10)
+        assertDecEquals("0.5".deci, num / 10)
+
+        assertDecEquals(15.deci, num + BigDecimal.TEN)
+        assertDecEquals((-5).deci, num - BigDecimal.TEN)
+        assertDecEquals(50.deci, num * BigDecimal.TEN)
+        assertDecEquals("0.5".deci, num / BigDecimal.TEN)
+
+        assertDecEquals(15.deci, num + 10.deci)
+        assertDecEquals((-5).deci, num - 10.deci)
+        assertDecEquals(50.deci, num * 10.deci)
+        assertDecEquals("0.5".deci, num / 10.deci)
     }
 
     @Test

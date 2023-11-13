@@ -63,29 +63,29 @@ import java.math.BigDecimal
 class DeciExpr(val deciContext: DeciContext = Deci.defaultDeciContext) {
     operator fun Deci?.unaryMinus(): Deci? = this?.unaryMinus()
 
-    operator fun Deci?.plus(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.plusInternal(other)
-    operator fun Deci?.minus(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.minusInternal(other)
-    operator fun Deci?.times(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.timesInternal(other)
-    operator fun Deci?.div(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.divInternal(other)
-    operator fun Deci?.rem(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.remInternal(other)
+    operator fun Deci?.plus(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.deci.plusInternal(other)
+    operator fun Deci?.minus(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.deci.minusInternal(other)
+    operator fun Deci?.times(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.deci.timesInternal(other)
+    operator fun Deci?.div(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.deci.divInternal(other)
+    operator fun Deci?.rem(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.deci.remInternal(other)
 
-    operator fun Deci?.plus(other: Deci?): Deci? = if (this == null || other == null) null else this.plus(other.toBigDecimal())
-    operator fun Deci?.minus(other: Deci?): Deci? = if (this == null || other == null) null else this.minus(other.toBigDecimal())
-    operator fun Deci?.times(other: Deci?): Deci? = if (this == null || other == null) null else this.times(other.toBigDecimal())
-    operator fun Deci?.div(other: Deci?): Deci? = if (this == null || other == null) null else this.div(other.toBigDecimal())
-    operator fun Deci?.rem(other: Deci?): Deci? = if (this == null || other == null) null else this.rem(other.toBigDecimal())
+    operator fun Deci?.plus(other: Deci?): Deci? = if (this == null || other == null) null else this.deci.plus(other.toBigDecimal())
+    operator fun Deci?.minus(other: Deci?): Deci? = if (this == null || other == null) null else this.deci.minus(other.toBigDecimal())
+    operator fun Deci?.times(other: Deci?): Deci? = if (this == null || other == null) null else this.deci.times(other.toBigDecimal())
+    operator fun Deci?.div(other: Deci?): Deci? = if (this == null || other == null) null else this.deci.div(other.toBigDecimal())
+    operator fun Deci?.rem(other: Deci?): Deci? = if (this == null || other == null) null else this.deci.rem(other.toBigDecimal())
 
-    operator fun Deci?.plus(other: Int?): Deci? = if (this == null || other == null) null else this.plus(BigDecimal.valueOf(other.toLong()))
-    operator fun Deci?.minus(other: Int?): Deci? = if (this == null || other == null) null else this.minus(BigDecimal.valueOf(other.toLong()))
-    operator fun Deci?.times(other: Int?): Deci? = if (this == null || other == null) null else this.times(BigDecimal.valueOf(other.toLong()))
-    operator fun Deci?.div(other: Int?): Deci? = if (this == null || other == null) null else this.div(BigDecimal.valueOf(other.toLong()))
-    operator fun Deci?.rem(other: Int?): Deci? = if (this == null || other == null) null else this.rem(BigDecimal.valueOf(other.toLong()))
+    operator fun Deci?.plus(other: Int?): Deci? = if (this == null || other == null) null else this.deci.plus(BigDecimal.valueOf(other.toLong()))
+    operator fun Deci?.minus(other: Int?): Deci? = if (this == null || other == null) null else this.deci.minus(BigDecimal.valueOf(other.toLong()))
+    operator fun Deci?.times(other: Int?): Deci? = if (this == null || other == null) null else this.deci.times(BigDecimal.valueOf(other.toLong()))
+    operator fun Deci?.div(other: Int?): Deci? = if (this == null || other == null) null else this.deci.div(BigDecimal.valueOf(other.toLong()))
+    operator fun Deci?.rem(other: Int?): Deci? = if (this == null || other == null) null else this.deci.rem(BigDecimal.valueOf(other.toLong()))
 
-    operator fun Deci?.plus(other: Long?): Deci? = if (this == null || other == null) null else this.plus(BigDecimal.valueOf(other))
-    operator fun Deci?.minus(other: Long?): Deci? = if (this == null || other == null) null else this.minus(BigDecimal.valueOf(other))
-    operator fun Deci?.times(other: Long?): Deci? = if (this == null || other == null) null else this.times(BigDecimal.valueOf(other))
-    operator fun Deci?.div(other: Long?): Deci? = if (this == null || other == null) null else this.div(BigDecimal.valueOf(other))
-    operator fun Deci?.rem(other: Long?): Deci? = if (this == null || other == null) null else this.rem(BigDecimal.valueOf(other))
+    operator fun Deci?.plus(other: Long?): Deci? = if (this == null || other == null) null else this.deci.plus(BigDecimal.valueOf(other))
+    operator fun Deci?.minus(other: Long?): Deci? = if (this == null || other == null) null else this.deci.minus(BigDecimal.valueOf(other))
+    operator fun Deci?.times(other: Long?): Deci? = if (this == null || other == null) null else this.deci.times(BigDecimal.valueOf(other))
+    operator fun Deci?.div(other: Long?): Deci? = if (this == null || other == null) null else this.deci.div(BigDecimal.valueOf(other))
+    operator fun Deci?.rem(other: Long?): Deci? = if (this == null || other == null) null else this.deci.rem(BigDecimal.valueOf(other))
 
     operator fun Int?.unaryMinus(): Deci? = this?.deci.unaryMinus()
 
@@ -166,16 +166,19 @@ class DeciExpr(val deciContext: DeciContext = Deci.defaultDeciContext) {
     operator fun BigDecimal?.rem(other: Deci?): Deci? = if (this == null || other == null) null else this.deci.rem(other)
 
     val BigDecimal.deci: Deci
-        inline get() = Deci(this, deciContext)
+        inline get() = Deci(this, this@DeciExpr.deciContext)
 
     val Int.deci: Deci
-        inline get() = Deci(BigDecimal.valueOf(this.toLong()), deciContext)
+        inline get() = Deci(BigDecimal.valueOf(this.toLong()), this@DeciExpr.deciContext)
 
     val Long.deci: Deci
-        inline get() = Deci(BigDecimal.valueOf(this), deciContext)
+        inline get() = Deci(BigDecimal.valueOf(this), this@DeciExpr.deciContext)
 
     val String.deci: Deci
-        inline get() = Deci(BigDecimal(this), deciContext)
+        inline get() = Deci(BigDecimal(this), this@DeciExpr.deciContext)
+
+    private val Deci.deci: Deci
+        inline get() = this.applyDeciContext(this@DeciExpr.deciContext)
 
 }
 
