@@ -179,11 +179,7 @@ class DeciExpr(val deciContext: DeciContext = Deci.defaultDeciContext) {
 
     private val Deci.deci: Deci
         inline get() = this.applyDeciContext(this@DeciExpr.deciContext)
-
 }
-
-// null to zero - useful in formulas, reduces expression '(nullableValue ?: 0.deci)' to 'nullableValue.orZero()'
-fun Deci?.orZero(): Deci = this ?: 0.deci
 
 fun deciExpr(expression: DeciExpr.() -> Number?): Deci? {
     val deciExprScope = DeciExpr()

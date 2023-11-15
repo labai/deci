@@ -168,7 +168,7 @@ class DeciTest {
 
     @Test
     fun test_hashcode() {
-        val list = (0..5).map { Deci("$it.${it}000") }
+        val list = (0..5).map { Deci("${it}.${it}000") }
         val map = list.map { it to it * 10 }.toMap()
         // searching in map uses hashcode
         assertEquals(22.deci, map[Deci("2.2")])
@@ -303,21 +303,33 @@ class DeciTest {
         assertDecEquals((-5).deci, num - 10L)
         assertDecEquals(50.deci, num * 10L)
         assertDecEquals("0.5".deci, num / 10L)
+        assertDecEquals(5.deci, num % 10L)
 
         assertDecEquals(15.deci, num + 10)
         assertDecEquals((-5).deci, num - 10)
         assertDecEquals(50.deci, num * 10)
         assertDecEquals("0.5".deci, num / 10)
+        assertDecEquals(5.deci, num % 10)
 
         assertDecEquals(15.deci, num + BigDecimal.TEN)
         assertDecEquals((-5).deci, num - BigDecimal.TEN)
         assertDecEquals(50.deci, num * BigDecimal.TEN)
         assertDecEquals("0.5".deci, num / BigDecimal.TEN)
+        assertDecEquals(5.deci, num % BigDecimal.TEN)
 
         assertDecEquals(15.deci, num + 10.deci)
         assertDecEquals((-5).deci, num - 10.deci)
         assertDecEquals(50.deci, num * 10.deci)
         assertDecEquals("0.5".deci, num / 10.deci)
+        assertDecEquals(5.deci, num % 10.deci)
+
+        assertDecEquals("0.1".deci, "2.5".deci % "1.2".deci) // 2.5 - 2.4 = 0.1
+    }
+
+    @Test
+    fun test_orZero() {
+        val num: Deci? = null
+        assertEquals(0.deci, num.orZero())
     }
 
     @Test

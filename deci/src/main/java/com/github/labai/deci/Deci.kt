@@ -28,6 +28,7 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.math.RoundingMode.HALF_UP
 import kotlin.math.max
+import kotlin.math.min
 
 /*
  * @author Augustus
@@ -92,7 +93,7 @@ class Deci @JvmOverloads constructor(decimal: BigDecimal, internal val deciConte
         decimal.scale() < 0 -> decimal.setScale(0, deciContext.roundingMode)
         decimal.scale() > deciContext.scale -> {
             val zeros = max(0, decimal.scale() - decimal.precision())
-            val scale = max(deciContext.scale, Integer.min(zeros + deciContext.precision, decimal.scale()))
+            val scale = max(deciContext.scale, min(zeros + deciContext.precision, decimal.scale()))
             decimal.setScale(scale, deciContext.roundingMode)
         }
         else -> decimal
@@ -273,6 +274,9 @@ operator fun Deci.compareTo(other: Number): Int {
         else -> this.compareTo(Deci(other.toString()))
     }
 }
+
+// null to zero - useful in formulas, reduces an expression '(nullableValue ?: 0.deci)' to 'nullableValue.orZero()'
+fun Deci?.orZero(): Deci = this ?: 0.deci
 
 //
 // Iterable extensions
