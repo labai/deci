@@ -4,9 +4,11 @@ package com.github.labai.deci.converter.jpa2;
  * @author Augustus
  * created on 2020.11.27
  *
+ * <p>
  * can be used to for package scanning configuration
  *
- * factory.setPackagesToScan(PACKAGES_DOMAIN, JpaConverters.PACKAGE);
+ * <p>
+ * factory.setPackagesToScan("your.jpa.package", Jpa2DeciRegister.PACKAGE);
  *
  */
 public final class Jpa2DeciRegister {

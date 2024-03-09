@@ -27,7 +27,9 @@ import com.github.labai.deci.Deci.DeciContext
 import org.junit.Test
 import java.math.BigDecimal
 import java.math.RoundingMode.HALF_UP
-import kotlin.test.*
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * @author Augustus
@@ -298,7 +300,6 @@ class DeciExprTest {
     fun test_with_bigDecimal() {
         val num: BigDecimal? = "5".toBigDecimal()
 
-
         check_5_and_10_math(
             deciExpr { num + 10L },
             deciExpr { num - 10L },
@@ -420,7 +421,6 @@ class DeciExprTest {
         assertEquals(ctx4, dec!!.deciContext)
         // assertEquals("10123456789.0123", dec.toString()) // would be such if to keep original from num1
         assertEquals("10123000000", dec.toString())
-
     }
 
     @Test

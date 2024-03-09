@@ -15,6 +15,7 @@ import java.lang.reflect.Type;
  * @author Augustus
  * created on 2020.11.29
  *
+ *  <p>
  *  gson = GsonBuilder()
  *      .registerTypeAdapter(Deci::class.java, GsonDeciRegister.deciTypeAdapter())
  *      .create();

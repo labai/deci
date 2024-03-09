@@ -24,6 +24,7 @@ SOFTWARE.
 package com.github.labai.deci
 
 import com.github.labai.deci.Deci.DeciContext
+import java.io.Serializable
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.math.RoundingMode.HALF_UP
@@ -78,15 +79,17 @@ class Deci @JvmOverloads constructor(decimal: BigDecimal, internal val deciConte
     constructor(int: Int) : this(BigDecimal(int))
     constructor(long: Long) : this(long.toBigDecimal())
 
-    data class DeciContext(val scale: Int, val roundingMode: RoundingMode, val precision: Int) {
+    data class DeciContext(val scale: Int, val roundingMode: RoundingMode, val precision: Int) : Serializable {
         constructor(scale: Int, roundingMode: RoundingMode = HALF_UP) : this(scale, roundingMode, scale)
+
         init {
             check(scale >= 0) { "scale must be >= 0 (is $scale)" }
             check(scale <= 2000) { "scale must be <= 2000 (is $scale)" }
             check(precision >= 1) { "precision must be >= 1 (is $precision)" }
             check(precision <= 2000) { "precision must be <= 2000 (is $precision)" }
         }
-        override fun toString(): String = "DeciContext($scale:$precision:${roundingMode})"
+
+        override fun toString(): String = "DeciContext($scale:$precision:${roundingMode.toString().lowercase()})"
     }
 
     private val decimal: BigDecimal = when {
@@ -96,6 +99,7 @@ class Deci @JvmOverloads constructor(decimal: BigDecimal, internal val deciConte
             val scale = max(deciContext.scale, min(zeros + deciContext.precision, decimal.scale()))
             decimal.setScale(scale, deciContext.roundingMode)
         }
+
         else -> decimal
     }
     private var _hashCode: Int? = null
@@ -103,6 +107,7 @@ class Deci @JvmOverloads constructor(decimal: BigDecimal, internal val deciConte
     operator fun unaryMinus(): Deci = Deci(decimal.negate(), deciContext)
 
     override fun toByte(): Byte = decimal.toByte()
+
     @Deprecated(message = "Deprecated since kotlin 1.9")
     override fun toChar(): Char = decimal.toInt().toChar()
     override fun toDouble(): Double = decimal.toDouble()
@@ -195,7 +200,9 @@ operator fun Deci.rem(other: Long): Deci = this.remInternal(other.toBigDecimal()
 
 infix fun Deci?.round(scale: Int): Deci? = this?.round(scale)
 infix fun Deci?.eq(other: Deci?): Boolean = if (this == null || other == null) this == other else this.compareTo(other) == 0
-infix fun Deci?.eq(other: BigDecimal?): Boolean = if (this == null || other == null) (this == null && other == null) else this.toBigDecimal().compareTo(other) == 0
+infix fun Deci?.eq(other: BigDecimal?): Boolean =
+    if (this == null || other == null) (this == null && other == null) else this.toBigDecimal().compareTo(other) == 0
+
 infix fun Deci?.eq(other: Number?): Boolean = if (this == null || other == null) (this == null && other == null) else this.compareTo(other) == 0
 
 fun Deci?.toBigDecimal(): BigDecimal? = this?.toBigDecimal()
@@ -230,7 +237,7 @@ val String.deci: Deci
 // additional Deci methods
 //
 fun Deci.Companion.valueOf(num: Number): Deci {
-    return when(num) {
+    return when (num) {
         is Deci -> num
         is BigDecimal -> Deci(num)
         is Int -> valueOf(num as Int)
@@ -246,7 +253,7 @@ fun Deci.Companion.valueOf(num: Number): Deci {
 fun Deci.Companion.valueOf(str: String): Deci = Deci(str.toBigDecimal())
 
 fun Deci.Companion.valueOf(num: Number, deciContext: DeciContext): Deci {
-    return when(num) {
+    return when (num) {
         is Deci -> if (deciContext == num.deciContext) num else Deci(num.toBigDecimal(), deciContext)
         is BigDecimal -> Deci(num, deciContext)
         is Int -> Deci(num.toLong().toBigDecimal(), deciContext)
@@ -262,7 +269,7 @@ fun Deci.Companion.valueOf(num: Number, deciContext: DeciContext): Deci {
 fun Deci.Companion.valueOf(str: String, deciContext: DeciContext): Deci = Deci(str.toBigDecimal(), deciContext)
 
 operator fun Deci.compareTo(other: Number): Int {
-    return when(other) {
+    return when (other) {
         is Deci -> compareTo(other as Deci)
         is BigDecimal -> compareTo(other.deci)
         is Int -> compareTo(other.deci)

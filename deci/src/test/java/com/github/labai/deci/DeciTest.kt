@@ -24,6 +24,9 @@ SOFTWARE.
 package com.github.labai.deci
 
 import com.github.labai.deci.Deci.DeciContext
+import java.io.ByteArrayOutputStream
+import java.io.NotSerializableException
+import java.io.ObjectOutputStream
 import java.math.BigDecimal
 import java.math.RoundingMode.DOWN
 import java.math.RoundingMode.HALF_UP
@@ -168,7 +171,7 @@ class DeciTest {
 
     @Test
     fun test_hashcode() {
-        val list = (0..5).map { Deci("${it}.${it}000") }
+        val list = (0..5).map { Deci("$it.${it}000") }
         val map = list.map { it to it * 10 }.toMap()
         // searching in map uses hashcode
         assertEquals(22.deci, map[Deci("2.2")])
@@ -330,6 +333,19 @@ class DeciTest {
     fun test_orZero() {
         val num: Deci? = null
         assertEquals(0.deci, num.orZero())
+    }
+
+    @Test
+    fun test_serializable() {
+        val num: Deci = 5.deci
+
+        var ex: Exception? = null
+        try {
+            ObjectOutputStream(ByteArrayOutputStream()).writeObject(num)
+        } catch (e: NotSerializableException) {
+            ex = e
+        }
+        assertNull(ex, "Expect Deci to be Serializable")
     }
 
     @Test

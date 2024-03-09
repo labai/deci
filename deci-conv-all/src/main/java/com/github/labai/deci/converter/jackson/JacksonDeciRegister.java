@@ -14,8 +14,9 @@ import java.io.IOException;
  * @author Augustus
  * created on 2020.11.29
  *
+ * <p>
  * 	ObjectMapper mapper = new ObjectMapper();
- *	mapper.registerModule(JacksonDeciConverters.deciTypeModule();
+ *	mapper.registerModule(JacksonDeciConverters.deciTypeModule());
  *
  */
 public class JacksonDeciRegister {
