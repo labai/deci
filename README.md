@@ -22,6 +22,9 @@ Additional functions:
 - `eq` – compares numbers of various types (including `null`)
 - `BigDecimal`, `Int`, and `Long` have `.deci` extension functions to convert values to *Deci*
 
+## What it isn't
+Deci does not reinvent math algorithms - at its core, it reuses Java’s `BigDecimal`.
+
 ## Math in code
 
 With _Deci_, you can use operators, making formulas easier to read compared to method calls with _BigDecimal_.
@@ -96,14 +99,26 @@ println(Deci("2.5") / Deci("2") round 1)
 Add the Maven dependency:
 
 <details>
-<summary><strong>Maven</strong></summary>
+<summary><strong>Maven (jvm)</strong></summary>
 
 ```xml
 <dependency>
   <groupId>com.github.labai</groupId>
-  <artifactId>deci</artifactId>
-  <version>0.0.1</version>
+  <artifactId>deci-jvm</artifactId>
+  <version>0.0.2</version>
 </dependency>
+```
+</details>
+
+<details>
+<summary><strong>Gradle for kotlin multiplatform</strong></summary>
+
+```kotlin
+sourceSets {
+    commonMain.dependencies {
+        implementation("com.github.labai:deci:0.0.2")
+    }
+}
 ```
 </details>
 
