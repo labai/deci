@@ -73,7 +73,7 @@ import kotlin.math.min
  *   DeciContext(20, HALF_UP, 20)
  *
  */
-class Deci @JvmOverloads constructor(decimal: BigDecimal, internal val deciContext: DeciContext = defaultDeciContext) : Number(), Comparable<Deci> {
+actual class Deci @JvmOverloads constructor(decimal: BigDecimal, internal val deciContext: DeciContext = defaultDeciContext) : Number(), Comparable<Deci> {
 
     constructor(str: String) : this(BigDecimal(str))
     constructor(int: Int) : this(BigDecimal(int))
