@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.github.labai"
-version = "0.0.2.dev1"
+version = "0.0.2"
 
 kotlin {
     jvm()
@@ -18,7 +18,6 @@ kotlin {
         }
     }
 }
-
 
 mavenPublishing {
     publishToMavenCentral()
