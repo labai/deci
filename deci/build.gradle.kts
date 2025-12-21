@@ -19,6 +19,9 @@ kotlin {
     }
 }
 
+// need to set up rules
+// apply(plugin = "org.jlleitschuh.gradle.ktlint")
+
 mavenPublishing {
     publishToMavenCentral()
 

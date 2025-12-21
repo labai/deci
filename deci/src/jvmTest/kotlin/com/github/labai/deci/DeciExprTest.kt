@@ -23,10 +23,9 @@ SOFTWARE.
 */
 package com.github.labai.deci
 
-import com.github.labai.deci.Deci.DeciContext
+import com.github.labai.deci.RoundingMode.HALF_UP
 import org.junit.Test
 import java.math.BigDecimal
-import java.math.RoundingMode.HALF_UP
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue

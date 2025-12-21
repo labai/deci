@@ -23,13 +23,12 @@ SOFTWARE.
 */
 package com.github.labai.deci
 
-import com.github.labai.deci.Deci.DeciContext
+import com.github.labai.deci.RoundingMode.DOWN
+import com.github.labai.deci.RoundingMode.HALF_UP
 import java.io.ByteArrayOutputStream
 import java.io.NotSerializableException
 import java.io.ObjectOutputStream
 import java.math.BigDecimal
-import java.math.RoundingMode.DOWN
-import java.math.RoundingMode.HALF_UP
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
