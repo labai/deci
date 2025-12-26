@@ -4,16 +4,29 @@ plugins {
 }
 
 group = "com.github.labai"
-version = "0.0.2"
+version = "0.1.0"
 
 kotlin {
     jvm()
+    js(IR) {
+        browser()
+        nodejs()
+        binaries.library()
+    }
 
     sourceSets {
         commonMain.dependencies {
         }
 
         commonTest.dependencies {
+            implementation(libs.kotlin.test)
+        }
+
+        jsMain.dependencies {
+            implementation(npm("decimal.js", "10.6.0"))
+        }
+
+        jsTest.dependencies {
             implementation(libs.kotlin.test)
         }
     }

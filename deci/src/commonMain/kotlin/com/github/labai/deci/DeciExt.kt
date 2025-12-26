@@ -23,18 +23,10 @@ SOFTWARE.
 */
 package com.github.labai.deci
 
-import java.math.BigDecimal
-
 /**
  * @author Augustus
  * created on 2025-12-21
 */
-expect operator fun Deci.plus(other: BigDecimal): Deci
-expect operator fun Deci.minus(other: BigDecimal): Deci
-expect operator fun Deci.times(other: BigDecimal): Deci
-expect operator fun Deci.div(other: BigDecimal): Deci
-expect operator fun Deci.rem(other: BigDecimal): Deci
-
 expect operator fun Deci.plus(other: Deci): Deci
 expect operator fun Deci.minus(other: Deci): Deci
 expect operator fun Deci.times(other: Deci): Deci
@@ -52,6 +44,8 @@ expect operator fun Deci.minus(other: Long): Deci
 expect operator fun Deci.times(other: Long): Deci
 expect operator fun Deci.div(other: Long): Deci
 expect operator fun Deci.rem(other: Long): Deci
+
+infix fun Deci?.eq(other: Number?): Boolean = if (this == null || other == null) (this == null && other == null) else this.compareTo(other) == 0
 
 //
 // Int extensions
@@ -90,7 +84,7 @@ fun Deci?.orZero(): Deci = this ?: Deci.ZERO
 //
 // Iterable extensions
 //
-@JvmName("sumOfDeci")
+// @JvmName("sumOfDeci")
 inline fun <T> Iterable<T>.sumOf(selector: (T) -> Deci): Deci {
     var sum: Deci = Deci.ZERO
     for (element in this) {

@@ -24,15 +24,30 @@ SOFTWARE.
 package com.github.labai.deci
 
 /*
- * @author Augustus
- * created on 2025-12-14
-*/
-expect class DeciContext {
-    constructor(scale: Int, roundingMode: RoundingMode, precision: Int)
-    constructor(scale: Int, roundingMode: RoundingMode)
-    constructor(scale: Int)
 
-    val scale: Int
-    val roundingMode: RoundingMode
+  https://mikemcl.github.io/decimal.js
+*/
+external class DecimalJs {
+    fun add(other: DecimalJs): DecimalJs
+    fun sub(other: DecimalJs): DecimalJs
+    fun mul(other: DecimalJs): DecimalJs
+    fun dividedBy(other: DecimalJs): DecimalJs
+
+    fun modulo(other: DecimalJs): DecimalJs
+    fun negated(): DecimalJs
+    fun comparedTo(other: DecimalJs): Int
+
+    fun toDecimalPlaces(scale: Int, roundingMode: Int): DecimalJs
+    fun toNumber(): Double
+    override fun toString(): String
+
+    // ~ position from dot
+    // e.g.:
+    //  e = -1 for "0.123"
+    //  e = 4 for "-12345.67"
+    @JsName("e")
+    val exponentNum: Int
+
+    // ~ total number of digits
     val precision: Int
 }

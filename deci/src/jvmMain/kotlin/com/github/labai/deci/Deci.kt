@@ -125,14 +125,14 @@ actual class Deci : Number, Comparable<Deci> {
 
     actual override fun toString(): String = decimal.stripTrailingZeros().toPlainString()
 
-    override fun equals(other: Any?): Boolean {
+    actual override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
         other as Deci
         return decimal.compareTo(other.decimal) == 0
     }
 
-    override fun hashCode(): Int {
+    actual override fun hashCode(): Int {
         if (_hashCode == null)
             _hashCode = decimal.stripTrailingZeros().hashCode()
         return _hashCode!!
@@ -172,11 +172,11 @@ actual class Deci : Number, Comparable<Deci> {
     }
 }
 
-actual operator fun Deci.plus(other: BigDecimal): Deci = this.plusInternal(other)
-actual operator fun Deci.minus(other: BigDecimal): Deci = this.minusInternal(other)
-actual operator fun Deci.times(other: BigDecimal): Deci = this.timesInternal(other)
-actual operator fun Deci.div(other: BigDecimal): Deci = this.divInternal(other)
-actual operator fun Deci.rem(other: BigDecimal): Deci = this.remInternal(other)
+operator fun Deci.plus(other: BigDecimal): Deci = this.plusInternal(other)
+operator fun Deci.minus(other: BigDecimal): Deci = this.minusInternal(other)
+operator fun Deci.times(other: BigDecimal): Deci = this.timesInternal(other)
+operator fun Deci.div(other: BigDecimal): Deci = this.divInternal(other)
+operator fun Deci.rem(other: BigDecimal): Deci = this.remInternal(other)
 
 actual operator fun Deci.plus(other: Deci): Deci = this.plusInternal(other.toBigDecimal())
 actual operator fun Deci.minus(other: Deci): Deci = this.minusInternal(other.toBigDecimal())
@@ -195,8 +195,6 @@ actual operator fun Deci.minus(other: Long): Deci = this.minusInternal(other.toB
 actual operator fun Deci.times(other: Long): Deci = this.timesInternal(other.toBigDecimal())
 actual operator fun Deci.div(other: Long): Deci = this.divInternal(other.toBigDecimal())
 actual operator fun Deci.rem(other: Long): Deci = this.remInternal(other.toBigDecimal())
-
-infix fun Deci?.eq(other: Number?): Boolean = if (this == null || other == null) (this == null && other == null) else this.compareTo(other) == 0
 
 fun Deci?.toBigDecimal(): BigDecimal? = this?.toBigDecimal()
 

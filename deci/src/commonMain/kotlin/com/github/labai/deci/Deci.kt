@@ -100,6 +100,10 @@ expect class Deci : Number, Comparable<Deci> {
 
     override fun toString(): String
 
+    override fun equals(other: Any?): Boolean
+
+    override fun hashCode(): Int
+
     companion object {
         val ZERO: Deci
         internal val defaultDeciContext: DeciContext

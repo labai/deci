@@ -23,8 +23,6 @@ SOFTWARE.
 */
 package com.github.labai.deci
 
-import java.io.Serializable
-import java.math.RoundingMode as JavaRoundingMode
 
 /*
  * @author Augustus
@@ -34,12 +32,10 @@ actual data class DeciContext actual constructor(
     actual val scale: Int,
     actual val roundingMode: RoundingMode,
     actual val precision: Int
-) : Serializable {
+) {
 
-    internal val javaRoundingMode: JavaRoundingMode
-        get() = roundingMode.toJava()
-
-    actual constructor(scale: Int) : this(scale, RoundingMode.HALF_UP)
+    internal val jsRoundingMode: Int
+        get() = roundingMode.toJs()
 
     actual constructor(scale: Int, roundingMode: RoundingMode) : this(scale, roundingMode, scale)
 
@@ -50,15 +46,17 @@ actual data class DeciContext actual constructor(
         check(precision <= 2000) { "precision must be <= 2000 (is $precision)" }
     }
 
-    override fun toString(): String = "DeciContext($scale:$precision:${roundingMode.toString().lowercase()})"
+    override fun toString(): String = "DeciContext($scale:$precision:${roundingMode})"
+
+    actual constructor(scale: Int) : this(scale, RoundingMode.HALF_UP)
 }
 
-internal fun RoundingMode.toJava(): JavaRoundingMode = when (this) {
-    RoundingMode.HALF_UP -> JavaRoundingMode.HALF_UP
-    RoundingMode.DOWN -> JavaRoundingMode.DOWN
-    RoundingMode.HALF_EVEN -> JavaRoundingMode.HALF_EVEN
-    RoundingMode.UP -> JavaRoundingMode.UP
-    RoundingMode.HALF_DOWN -> JavaRoundingMode.HALF_DOWN
-    RoundingMode.CEILING -> JavaRoundingMode.CEILING
-    RoundingMode.FLOOR -> JavaRoundingMode.FLOOR
+internal fun RoundingMode.toJs(): Int = when (this) {
+    RoundingMode.HALF_UP -> 4
+    RoundingMode.DOWN -> 1
+    RoundingMode.HALF_EVEN -> 6
+    RoundingMode.UP -> 0
+    RoundingMode.HALF_DOWN -> 5
+    RoundingMode.CEILING -> 2
+    RoundingMode.FLOOR -> 3
 }
