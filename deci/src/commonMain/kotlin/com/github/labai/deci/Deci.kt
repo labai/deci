@@ -77,8 +77,11 @@ package com.github.labai.deci
 expect class Deci : Number, Comparable<Deci> {
     internal val deciContext: DeciContext
 
+    constructor(str: String, deciContext: DeciContext)
     constructor(str: String)
+    constructor(int: Int, deciContext: DeciContext)
     constructor(int: Int)
+    constructor(long: Long, deciContext: DeciContext)
     constructor(long: Long)
 
     operator fun unaryMinus(): Deci

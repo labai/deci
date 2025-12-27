@@ -95,11 +95,14 @@ actual class Deci : Number, Comparable<Deci> {
             else -> decimal
         }
     }
-
     constructor(decimal: BigDecimal) : this(decimal, defaultDeciContext)
+
+    actual constructor(str: String, deciContext: DeciContext) : this(BigDecimal(str), deciContext)
     actual constructor(str: String) : this(BigDecimal(str))
+    actual constructor(int: Int, deciContext: DeciContext) : this(BigDecimal(int), deciContext)
     actual constructor(int: Int) : this(BigDecimal(int))
-    actual constructor(long: Long) : this(long.toBigDecimal())
+    actual constructor(long: Long, deciContext: DeciContext) : this(long.toBigDecimal(), deciContext)
+    actual constructor(long: Long) : this(BigDecimal(long))
 
     private val decimal: BigDecimal
     private var _hashCode: Int? = null

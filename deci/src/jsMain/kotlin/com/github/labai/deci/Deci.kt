@@ -87,13 +87,14 @@ actual class Deci : Number, Comparable<Deci> {
         this.deciContext = deciContext
     }
 
-    constructor(str: String, deciContext: DeciContext) {
+    actual constructor(str: String, deciContext: DeciContext) {
         this.decimal = DecimalJsFactory.createDecimalJs(str, deciContext)
         this.deciContext = deciContext
     }
-
     actual constructor(str: String) : this(str, defaultDeciContext)
+    actual constructor(int: Int, deciContext: DeciContext) : this(int.toString(), deciContext)
     actual constructor(int: Int) : this(int.toString(), defaultDeciContext)
+    actual constructor(long: Long, deciContext: DeciContext) : this(long.toString(), deciContext)
     actual constructor(long: Long) : this(long.toString(), defaultDeciContext)
 
     actual operator fun unaryMinus(): Deci = Deci(decimal.negated(), deciContext)

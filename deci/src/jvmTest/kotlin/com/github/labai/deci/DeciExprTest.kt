@@ -37,7 +37,7 @@ import kotlin.test.assertTrue
 class DeciExprTest {
 
     @Test
-    fun test_deciExpr_simple() {
+    fun jvm_deciExpr_simple() {
         val num: Deci? = null
 
         val res: Deci? = deciExpr {
@@ -47,33 +47,8 @@ class DeciExprTest {
     }
 
     @Test
-    fun test_deciExpr_with_null() {
+    fun jvm_deciExpr_with_null() {
         val num: Deci? = null
-
-        assertNull(deciExpr { num + 1L })
-        assertNull(deciExpr { num - 1L })
-        assertNull(deciExpr { num * 1L })
-        assertNull(deciExpr { num / 1L })
-        assertNull(deciExpr { num % 1L })
-
-        assertNull(deciExpr { 1L + num })
-        assertNull(deciExpr { 1L - num })
-        assertNull(deciExpr { 1L * num })
-        assertNull(deciExpr { 1L / num })
-        assertNull(deciExpr { 1L % num })
-
-        // [INFO] Kotlin: Overload resolution ambiguity - use long instead
-        // assertNull(deciExpr { num + 1 })
-        // assertNull(deciExpr { num - 1 })
-        // assertNull(deciExpr { num * 1 })
-        // assertNull(deciExpr { num / 1 })
-        // assertNull(deciExpr { num % 1 })
-
-        assertNull(deciExpr { 1 + num })
-        assertNull(deciExpr { 1 - num })
-        assertNull(deciExpr { 1 * num })
-        assertNull(deciExpr { 1 / num })
-        assertNull(deciExpr { 1 % num })
 
         assertNull(deciExpr { num + BigDecimal.ONE })
         assertNull(deciExpr { num - BigDecimal.ONE })
@@ -86,55 +61,13 @@ class DeciExprTest {
         assertNull(deciExpr { BigDecimal.ONE * num })
         assertNull(deciExpr { BigDecimal.ONE / num })
         assertNull(deciExpr { BigDecimal.ONE % num })
-
-        assertNull(deciExpr { num + 1.deci })
-        assertNull(deciExpr { num - 1.deci })
-        assertNull(deciExpr { num * 1.deci })
-        assertNull(deciExpr { num / 1.deci })
-        assertNull(deciExpr { num % 1.deci })
-
-        assertNull(deciExpr { 1.deci + num })
-        assertNull(deciExpr { 1.deci - num })
-        assertNull(deciExpr { 1.deci * num })
-        assertNull(deciExpr { 1.deci / num })
-        assertNull(deciExpr { 1.deci % num })
     }
 
     @Test
-    fun test_with_deci() {
+    fun jvm_with_deci() {
         val num: Deci? = 5.deci
 
         check_5_and_10_math(
-            deciExpr { num + 10L },
-            deciExpr { num - 10L },
-            deciExpr { num * 10L },
-            deciExpr { num / 10L },
-            deciExpr { num % 10L },
-        )
-        check_10_and_5_math(
-            deciExpr { 10L + num },
-            deciExpr { 10L - num },
-            deciExpr { 10L * num },
-            deciExpr { 10L / num },
-            deciExpr { 10L % num },
-        )
-
-        // [INFO] Kotlin: Overload resolution ambiguity - use long instead
-        // assertDecEquals(15.deci, deciExpr { num + 10 })
-        // assertDecEquals((-5).deci, deciExpr { num - 10 })
-        // assertDecEquals(50.deci, deciExpr { num * 10 })
-        // assertDecEquals("0.5".deci, deciExpr { num / 10 })
-        // assertDecEquals(5.deci, deciExpr { num % 10 })
-
-        check_10_and_5_math(
-            deciExpr { 10 + num },
-            deciExpr { 10 - num },
-            deciExpr { 10 * num },
-            deciExpr { 10 / num },
-            deciExpr { 10 % num },
-        )
-
-        check_5_and_10_math(
             deciExpr { num + BigDecimal.TEN },
             deciExpr { num - BigDecimal.TEN },
             deciExpr { num * BigDecimal.TEN },
@@ -148,58 +81,13 @@ class DeciExprTest {
             deciExpr { BigDecimal.TEN / num },
             deciExpr { BigDecimal.TEN % num },
         )
-
-        check_5_and_10_math(
-            deciExpr { num + 10.deci },
-            deciExpr { num - 10.deci },
-            deciExpr { num * 10.deci },
-            deciExpr { num / 10.deci },
-            deciExpr { num % 10.deci },
-        )
-        check_10_and_5_math(
-            deciExpr { 10.deci + num },
-            deciExpr { 10.deci - num },
-            deciExpr { 10.deci * num },
-            deciExpr { 10.deci / num },
-            deciExpr { 10.deci % num },
-        )
     }
 
     @Test
-    fun test_with_long() {
+    fun jvm_with_long() {
         val num: Long? = 5
 
         check_5_and_10_math(
-            deciExpr { num + 10L },
-            deciExpr { num - 10L },
-            deciExpr { num * 10L },
-            deciExpr { num / 10L },
-            deciExpr { num % 10L },
-        )
-        check_10_and_5_math(
-            deciExpr { 10L + num },
-            deciExpr { 10L - num },
-            deciExpr { 10L * num },
-            deciExpr { 10L / num },
-            deciExpr { 10L % num },
-        )
-
-        // [INFO] Kotlin: Overload resolution ambiguity - use long instead
-        // assertDecEquals(15.deci, deciExpr { num + 10 })
-        // assertDecEquals((-5).deci, deciExpr { num - 10 })
-        // assertDecEquals(50.deci, deciExpr { num * 10 })
-        // assertDecEquals("0.5".deci, deciExpr { num / 10 })
-        // assertDecEquals(5.deci, deciExpr { num % 10 })
-
-        check_10_and_5_math(
-            deciExpr { 10 + num },
-            deciExpr { 10 - num },
-            deciExpr { 10 * num },
-            deciExpr { 10 / num },
-            deciExpr { 10 % num },
-        )
-
-        check_5_and_10_math(
             deciExpr { num + BigDecimal.TEN },
             deciExpr { num - BigDecimal.TEN },
             deciExpr { num * BigDecimal.TEN },
@@ -213,58 +101,13 @@ class DeciExprTest {
             deciExpr { BigDecimal.TEN / num },
             deciExpr { BigDecimal.TEN % num },
         )
-
-        check_5_and_10_math(
-            deciExpr { num + 10.deci },
-            deciExpr { num - 10.deci },
-            deciExpr { num * 10.deci },
-            deciExpr { num / 10.deci },
-            deciExpr { num % 10.deci },
-        )
-        check_10_and_5_math(
-            deciExpr { 10.deci + num },
-            deciExpr { 10.deci - num },
-            deciExpr { 10.deci * num },
-            deciExpr { 10.deci / num },
-            deciExpr { 10.deci % num },
-        )
     }
 
     @Test
-    fun test_with_int() {
+    fun jvm_with_int() {
         val num: Int? = 5
 
         check_5_and_10_math(
-            deciExpr { num + 10L },
-            deciExpr { num - 10L },
-            deciExpr { num * 10L },
-            deciExpr { num / 10L },
-            deciExpr { num % 10L },
-        )
-        check_10_and_5_math(
-            deciExpr { 10L + num },
-            deciExpr { 10L - num },
-            deciExpr { 10L * num },
-            deciExpr { 10L / num },
-            deciExpr { 10L % num },
-        )
-
-        // [INFO] Kotlin: Overload resolution ambiguity - use long instead
-        // assertDecEquals(15.deci, deciExpr { num + 10 })
-        // assertDecEquals((-5).deci, deciExpr { num - 10 })
-        // assertDecEquals(50.deci, deciExpr { num * 10 })
-        // assertDecEquals("0.5".deci, deciExpr { num / 10 })
-        // assertDecEquals(5.deci, deciExpr { num % 10 })
-
-        check_10_and_5_math(
-            deciExpr { 10 + num },
-            deciExpr { 10 - num },
-            deciExpr { 10 * num },
-            deciExpr { 10 / num },
-            deciExpr { 10 % num },
-        )
-
-        check_5_and_10_math(
             deciExpr { num + BigDecimal.TEN },
             deciExpr { num - BigDecimal.TEN },
             deciExpr { num * BigDecimal.TEN },
@@ -278,25 +121,10 @@ class DeciExprTest {
             deciExpr { BigDecimal.TEN / num },
             deciExpr { BigDecimal.TEN % num },
         )
-
-        check_5_and_10_math(
-            deciExpr { num + 10.deci },
-            deciExpr { num - 10.deci },
-            deciExpr { num * 10.deci },
-            deciExpr { num / 10.deci },
-            deciExpr { num % 10.deci },
-        )
-        check_10_and_5_math(
-            deciExpr { 10.deci + num },
-            deciExpr { 10.deci - num },
-            deciExpr { 10.deci * num },
-            deciExpr { 10.deci / num },
-            deciExpr { 10.deci % num },
-        )
     }
 
     @Test
-    fun test_with_bigDecimal() {
+    fun jvm_with_bigDecimal() {
         val num: BigDecimal? = "5".toBigDecimal()
 
         check_5_and_10_math(
@@ -361,49 +189,18 @@ class DeciExprTest {
     }
 
     @Test
-    fun test_with_negative() {
+    fun jvm_with_negative() {
         val num: Deci? = 5.deci
-        assertDecEquals((-5).deci, deciExpr { -num })
-        assertDecEquals((-5).deci, deciExpr { -(5.deci) })
-        assertDecEquals((-5).deci, deciExpr { -5 })
-        assertDecEquals((-5).deci, deciExpr { -5L })
         assertDecEquals((-5).deci, deciExpr { "-5".toBigDecimal() })
     }
 
     @Test
-    fun test_deciContext_simple() {
-        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
-
-        var dec: Deci? = deciExpr(ctx4) { 1 }
-        assertEquals(ctx4, dec!!.deciContext)
-
-        dec = deciExpr(ctx4) { 1.deci + "2.123456".deci }
-        assertEquals(ctx4, dec!!.deciContext)
-        assertEquals("3.1235", dec.toString())
-
-        dec = Deci.valueOf(2, ctx4)
-        assertEquals(ctx4, dec.deciContext)
-
-        dec = Deci.valueOf(2.deci, ctx4)
-        assertEquals(ctx4, dec.deciContext)
-    }
-
-    @Test
-    fun test_deciContext_whenNotProvided_thenUseDefault() {
+    fun jvm_deciContext_whenNotProvided_thenUseDefault() {
         val defaultCtx = 1.deci.deciContext
         // default is 20, we are losing decimals after 20+ digits inside expression
         val dec = deciExpr { "1.0123456789012345678901234567890123456789".deci * "1e10".deci }
         assertEquals(defaultCtx, dec!!.deciContext)
         assertEquals("10123456789.0123456789", dec.toString())
-    }
-
-    @Test
-    fun test_deciContext_whenProvided_thenUseIt() {
-        // with bigger context (40), we should keep the scale inside expression
-        val ctx40 = DeciContext(scale = 40, roundingMode = HALF_UP, precision = 30)
-        val dec = deciExpr(ctx40) { "1.0123456789012345678901234567890123456789".deci * "1e10".deci }
-        assertEquals(ctx40, dec!!.deciContext)
-        assertEquals("10123456789.012345678901234567890123456789", dec.toString())
     }
 
     // [INFO]
@@ -412,7 +209,7 @@ class DeciExprTest {
     // but for consistency are using one from deciExpr
     //
     @Test
-    fun test_deciContext_useFromDeciExpr_nullables() {
+    fun jvm_deciContext_useFromDeciExpr_nullables() {
         val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
 
         val num1: Deci? = "1.0123456789012345678901234567890123456789".deci // nullable - will use times() from deciExpr
@@ -423,7 +220,7 @@ class DeciExprTest {
     }
 
     @Test
-    fun test_deciContext_useFromDeciExpr_nonNullables() {
+    fun jvm_deciContext_useFromDeciExpr_nonNullables() {
         val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
 
         // same for non-nullable
@@ -434,7 +231,7 @@ class DeciExprTest {
     }
 
     @Test
-    fun test_deciContext_useFromDeciExpr_biggerScale__jvmVersion() {
+    fun jvm_deciContext_useFromDeciExpr_biggerScale__jvmVersion() {
         val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
         val ctx40 = DeciContext(scale = 40, roundingMode = HALF_UP, precision = 30)
 
@@ -447,24 +244,6 @@ class DeciExprTest {
         // 1.012345 x 1.0123465789 = 1.0248439974165205 (js)
         // i.e. here we use shorter scale, if it is defined in deciContext
         assertEquals("1.02479844182047", dec.toString())
-    }
-
-    @Test
-    fun test_deciContext_access_from_lambda() {
-        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
-        val dec = deciExpr(ctx4) { Deci.valueOf(2, deciContext) }
-        assertEquals(ctx4, dec!!.deciContext)
-    }
-
-    @Test
-    fun test_exceptions() {
-        val res: Deci? = try {
-            deciExpr { "1.2".deci / 0.deci }
-            throw IllegalStateException("Expected div/0")
-        } catch (e: Exception) {
-            null
-        }
-        assertNull(res)
     }
 
     private data class OpTestRes(
