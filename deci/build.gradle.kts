@@ -14,6 +14,8 @@ kotlin {
         binaries.library()
     }
 
+    iosX64()
+
     sourceSets {
         commonMain.dependencies {
         }
