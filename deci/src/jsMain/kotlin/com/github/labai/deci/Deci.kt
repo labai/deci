@@ -71,7 +71,7 @@ actual class Deci : Number, Comparable<Deci> {
     }
 
     actual override fun toString(): String {
-        val scale = max(deciContext.scale, deciContext.precision - min(decimal.exponentNum, 0))
+        val scale = Utils.calcScale(decimal, deciContext)
         val d = decimal.toDecimalPlaces(scale, deciContext.jsRoundingMode)
         return d.toString()
     }
@@ -94,8 +94,12 @@ actual class Deci : Number, Comparable<Deci> {
     internal fun divInternal(other: Deci): Deci = divInternal(other.decimal)
     internal fun remInternal(other: Deci): Deci = remInternal(other.decimal)
 
-    internal fun plusInternal(other: DecimalJs): Deci = Deci(decimal.add(other), deciContext)
-    internal fun minusInternal(other: DecimalJs): Deci = Deci(decimal.sub(other), deciContext)
+    internal fun plusInternal(other: DecimalJs): Deci {
+        return Utils.toRoundedDeci(decimal.add(other), deciContext)
+    }
+    internal fun minusInternal(other: DecimalJs): Deci {
+        return Utils.toRoundedDeci(decimal.sub(other), deciContext)
+    }
     internal fun timesInternal(other: DecimalJs): Deci {
         val e1 = decimal.exponentNum
         val e2 = other.exponentNum
@@ -107,7 +111,7 @@ actual class Deci : Number, Comparable<Deci> {
             decimal
         }
         val d: DecimalJs = dec.mul(other)
-        return Deci(d, deciContext)
+        return Utils.toRoundedDeci(d, deciContext)
     }
     internal fun divInternal(other: DecimalJs): Deci {
         val e1 = decimal.exponentNum

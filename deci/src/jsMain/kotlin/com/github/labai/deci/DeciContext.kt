@@ -52,20 +52,20 @@ actual data class DeciContext actual constructor(
 
     actual constructor(scale: Int) : this(scale, RoundingMode.HALF_UP)
 
-    // todo: allow (public) to configure calculation rounding
-    internal var config: DeciContextConfig = DeciContextConfig()
+    @Suppress("UNNECESSARY_SAFE_CALL") // is undefined while initiating Deci.defaultDeciContex itself
+    var config: DeciContextConfig = Deci.defaultDeciContext?.config ?: DeciContextConfig()
         private set
 
-    private fun withConfig(config: DeciContextConfig): DeciContext {
+    fun withConfig(config: DeciContextConfig): DeciContext {
         val ctx = DeciContext(scale, roundingMode, precision)
         ctx.config = config
         return ctx
     }
-
-    internal class DeciContextConfig(
-        val roundToScale: Boolean = true
-    )
 }
+
+class DeciContextConfig(
+    val roundToScale: Boolean = true
+)
 
 internal fun RoundingMode.toJs(): Int = when (this) {
     RoundingMode.HALF_UP -> 4

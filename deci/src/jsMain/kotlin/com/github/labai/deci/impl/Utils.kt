@@ -27,7 +27,6 @@ import com.github.labai.deci.Deci
 import com.github.labai.deci.DeciContext
 import com.github.labai.deci.DecimalJs
 import kotlin.math.max
-import kotlin.math.min
 
 /*
  * @author Augustus
@@ -39,10 +38,10 @@ import kotlin.math.min
  */
 internal object Utils {
 
-    // todo: test
     internal fun calcScale(d: DecimalJs, ctx: DeciContext): Int {
-        return max(ctx.scale, ctx.precision + min(d.exponentNum, 0))
+        return max(ctx.scale, ctx.precision + max(-d.exponentNum - 1, 0))
     }
+
     internal fun toRoundedDeci(d: DecimalJs, ctx: DeciContext): Deci {
         if (!ctx.config.roundToScale)
             return Deci(d, ctx)

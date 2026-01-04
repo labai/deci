@@ -23,6 +23,7 @@ SOFTWARE.
 */
 package com.github.labai.deci
 
+import com.github.labai.deci.RoundingMode.HALF_UP
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -37,6 +38,7 @@ class DeciTest {
     fun js_api_exponentNum() {
         assertEquals(0, "5".deci.decimal.exponentNum)
         assertEquals(1, "50.5".deci.decimal.exponentNum)
+        assertEquals(1, "50.51".deci.decimal.exponentNum)
         assertEquals(2, "100.0".deci.decimal.exponentNum)
         assertEquals(-1, "0.512".deci.decimal.exponentNum)
         assertEquals(-2, "0.0512".deci.decimal.exponentNum)
@@ -51,6 +53,36 @@ class DeciTest {
         val Decimal9 = DecimalJsCon.clone(js("{ precision: 9 }"))
         val d9 = Decimal9(1).dividedBy(Decimal9(3))
         assertEquals("0.333333333", d9.toString())
+    }
+
+    @Test
+    fun js_deciContext_default() {
+        fun checkRound(expectRound: Boolean) {
+            val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+            val d1 = Deci(1, ctx4) / 3.deci * 3.deci
+            val d2 = Deci(1, ctx4) + "1.00004".deci + "1.00004".deci
+            val d3 = Deci(3, ctx4) - "1.00004".deci - "1.00004".deci
+            if (expectRound) {
+                assertEquals("0.9999", d1.toString())
+                assertEquals("3", d2.toString())
+                assertEquals("1", d3.toString())
+            } else {
+                assertEquals("1", d1.toString()) // internally keep precision higher
+                assertEquals("3.0001", d2.toString())
+                assertEquals("0.9999", d3.toString())
+            }
+        }
+        try {
+            checkRound(true)
+            println("Test step - changing default config to not round")
+            Deci.defaultDeciContext = Deci.originalDefaultDeciContext
+                .withConfig(DeciContextConfig(roundToScale = false))
+            checkRound(false)
+        } finally {
+            println("Test step - restoring default config")
+            Deci.defaultDeciContext = Deci.originalDefaultDeciContext
+            checkRound(true)
+        }
     }
 
     @Test
