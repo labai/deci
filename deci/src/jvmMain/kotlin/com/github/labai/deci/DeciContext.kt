@@ -29,6 +29,9 @@ import java.math.RoundingMode as JavaRoundingMode
 /*
  * @author Augustus
  * created on 2025-12-21
+ *
+ * JVM version of DeciContext
+ *
 */
 actual data class DeciContext actual constructor(
     actual val scale: Int,

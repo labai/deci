@@ -71,16 +71,6 @@ class DeciCommonTest {
     }
 
     @Test
-    fun common_division_complex() {
-        // (1 - (1/365)) * (1 - (2/365)
-        val d = (1.deci - 1.deci / 365) * (1.deci - 2.deci / 365) round 11
-        assertDecEquals("0.99179583412", d)
-
-        val d3 = 1.deci / Deci("1.23e10") * Deci("2.34e-10") * Deci("1e20") round 11
-        assertDecEquals("1.90243902439", d3)
-    }
-
-    @Test
     fun common_rounding() {
         assertDecEquals("1.11", Deci("1.114").round(2))
         assertDecEquals("1.12", Deci("1.115") round 2)

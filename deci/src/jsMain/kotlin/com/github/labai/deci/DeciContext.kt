@@ -27,6 +27,8 @@ package com.github.labai.deci
 /*
  * @author Augustus
  * created on 2025-12-21
+ *
+ * JS version of DeciContext
 */
 actual data class DeciContext actual constructor(
     actual val scale: Int,
@@ -49,6 +51,20 @@ actual data class DeciContext actual constructor(
     override fun toString(): String = "DeciContext($scale:$precision:${roundingMode})"
 
     actual constructor(scale: Int) : this(scale, RoundingMode.HALF_UP)
+
+    // todo: allow (public) to configure calculation rounding
+    internal var config: DeciContextConfig = DeciContextConfig()
+        private set
+
+    private fun withConfig(config: DeciContextConfig): DeciContext {
+        val ctx = DeciContext(scale, roundingMode, precision)
+        ctx.config = config
+        return ctx
+    }
+
+    internal class DeciContextConfig(
+        val roundToScale: Boolean = true
+    )
 }
 
 internal fun RoundingMode.toJs(): Int = when (this) {

@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) 2020 Augustus
+Copyright (c) 2026 Augustus
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -21,32 +21,36 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-package com.github.labai.deci
+package com.github.labai.deci.impl
+
+import com.github.labai.deci.Deci
+import com.github.labai.deci.DeciContext
+import com.github.labai.deci.DecimalJs
+import kotlin.math.max
+import kotlin.math.min
 
 /*
-  https://mikemcl.github.io/decimal.js
-*/
-external class DecimalJs {
-    fun add(other: DecimalJs): DecimalJs
-    fun sub(other: DecimalJs): DecimalJs
-    fun mul(other: DecimalJs): DecimalJs
-    fun dividedBy(other: DecimalJs): DecimalJs
+ * @author Augustus
+ * created on 2026-01-03
+ *
+ * Internal (private) helpers and utils.
+ *
+ * Not for API!
+ */
+internal object Utils {
 
-    fun modulo(other: DecimalJs): DecimalJs
-    fun negated(): DecimalJs
-    fun comparedTo(other: DecimalJs): Int
+    // todo: test
+    internal fun calcScale(d: DecimalJs, ctx: DeciContext): Int {
+        return max(ctx.scale, ctx.precision + min(d.exponentNum, 0))
+    }
+    internal fun toRoundedDeci(d: DecimalJs, ctx: DeciContext): Deci {
+        if (!ctx.config.roundToScale)
+            return Deci(d, ctx)
+        val scale = calcScale(d, ctx)
+        return round(d, scale, ctx)
+    }
 
-    fun toDecimalPlaces(scale: Int, roundingMode: Int): DecimalJs
-    fun toNumber(): Double
-    override fun toString(): String
-
-    // ~ position from dot
-    // e.g.:
-    //  e = -1 for "0.123"
-    //  e = 4 for "-12345.67"
-    @JsName("e")
-    val exponentNum: Int
-
-    // ~ total number of digits
-    val precision: Int
+    internal fun round(decimal: DecimalJs, scale: Int, ctx: DeciContext): Deci {
+        return Deci(decimal.toDecimalPlaces(scale, ctx.jsRoundingMode), ctx)
+    }
 }

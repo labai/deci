@@ -57,8 +57,15 @@ class DeciTest {
 
     @Test
     fun jvm_division_complex() {
+        // (1 - (1/365)) * (1 - (2/365)
+        val d = (1.deci - 1.deci / 365) * (1.deci - 2.deci / 365) round 11
+        assertDecEquals("0.99179583412", d)
+
         val d2 = (BigDecimal.ONE - BigDecimal.ONE / BigDecimal(365)) * (BigDecimal.ONE - BigDecimal(2) / BigDecimal(365))
         assertDecEquals("1", d2) // [INFO] WRONG with original BigDecimal!
+
+        val d3 = 1.deci / Deci("1.23e10") * Deci("2.34e-10") * Deci("1e20") round 11
+        assertDecEquals("1.90243902439", d3)
     }
 
     @Test

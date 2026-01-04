@@ -23,39 +23,11 @@ SOFTWARE.
 */
 package com.github.labai.deci
 
-/**
+/*
  * @author Augustus
- *         created on 2023.11.08
+ * created on 2025-12-22
  *
- * An extension for using nullable variables in math expression.
- *
- * By default, nullable variables are not allowed to be used in math expressions in kotlin.
- * To keep consistent behaviour, Deci also do not allow nullables in math.
- *
- * This extension allows to use nullables in math expression with such logic,
- * that if any of part is null, then result is null.
- *
- * Example:
- *   val num: Deci? = null
- *   val res: Deci? = deciExpr {
- *      3.deci + 2.deci * num
- *   }
- *   assertNull(res)
- *
- * If needed bigger scale, it can be provided as parameter for deciExpr and will be used inside it.
- *
- * Example:
- *   val ctx40 = DeciContext(scale = 40, roundingMode = HALF_UP, precision = 30)
- *   val res = deciExpr(ctx40) { "1.0123456789012345678901234567890123456789".deci * "1e10".deci }
- *   assertEquals("10123456789.012345678901234567890123456789", dec.toString()) // scale are kept inside deciExpr
- *
- * In case you just want nulls treat as zeros, you can also use an extension Deci?.orZero().
- *
- * Example:
- *   val num: Deci? = null
- *   val res: Deci = 3.deci + 2.deci * num.orZero()
- *   assertEquals(3.deci, res)
- *
+ * JS version of DeciExpr
 */
 actual class DeciExpr {
     actual val deciContext: DeciContext

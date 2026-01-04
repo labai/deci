@@ -23,10 +23,36 @@ SOFTWARE.
 */
 package com.github.labai.deci
 
-/*
+/**
  * @author Augustus
- * created on 2025-12-14
-*/
+ *   created on 2020.11.18
+ *
+ * <p>Defines numeric formatting and precision rules for Deci calculations.
+ *
+ * <p>This context controls how decimal numbers are represented, rounded, and
+ * constrained during arithmetic operations.</p>
+ *
+ * <h3>Key concepts</h3>
+ * <ul>
+ *   <li><b>Scale</b> – the target number of digits after the decimal point.</li>
+ *   <li><b>Precision</b> – the minimum number of significant fractional digits that must be preserved.</li>
+ *   <li><b>Rounding mode</b> – determines how values are rounded when required.</li>
+ * </ul>
+ *
+ * <p>For very small numbers, the actual number of fractional digits may exceed
+ * <code>scale</code> in order to preserve the required {@code precision}.</p>
+ *
+ * <h3>Examples</h3>
+ * With <code>scale = 4</code> and <code>precision = 3</code>, the following values are valid:
+ * <ul>
+ *   <li><code>1.3333</code> – scale is exactly 4, precision exceeds 3</li>
+ *   <li><code>0.000333</code> – precision is preserved even though scale exceeds 4</li>
+ * </ul>
+ *
+ * <p>Platform-specific behavior configuration may be applied additionally</p>
+ *
+ */
+@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 expect class DeciContext {
     constructor(scale: Int, roundingMode: RoundingMode, precision: Int)
     constructor(scale: Int, roundingMode: RoundingMode)

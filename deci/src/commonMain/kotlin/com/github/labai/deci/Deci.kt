@@ -74,6 +74,7 @@ package com.github.labai.deci
  * <p>Default value:</p>
  * <pre>DeciContext(20, HALF_UP, 20)</pre>
  */
+@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 expect class Deci : Number, Comparable<Deci> {
     internal val deciContext: DeciContext
 
@@ -96,7 +97,6 @@ expect class Deci : Number, Comparable<Deci> {
 
     fun applyDeciContext(deciContext: DeciContext): Deci
 
-    /** round to n decimals. Unlike BigDecimal.round(), here parameter 'scale' means scale, not precision */
     infix fun round(scale: Int): Deci
 
     override fun compareTo(other: Deci): Int
@@ -109,7 +109,13 @@ expect class Deci : Number, Comparable<Deci> {
 
     companion object {
         val ZERO: Deci
-        internal val defaultDeciContext: DeciContext
+
+        /** original default Deci context (in case want to restore) */
+        internal val originalDefaultDeciContext: DeciContext
+
+        /** default Deci context - will be used for creating new Deci; can be changed for project globally */
+        var defaultDeciContext: DeciContext
+
         fun valueOf(int: Int): Deci
         fun valueOf(long: Long): Deci
     }
