@@ -25,6 +25,7 @@ package com.github.labai.deci
 
 import com.github.labai.deci.RoundingMode.DOWN
 import com.github.labai.deci.RoundingMode.HALF_UP
+import com.github.labai.deci.impl.UtilsTestHelper.CTX4
 import kotlin.test.*
 
 /**
@@ -228,6 +229,33 @@ class DeciCommonTest {
     fun common_orZero() {
         val num: Deci? = null
         assertEquals(0.deci, num.orZero())
+    }
+
+    @Test
+    fun common_fromString_equal() {
+        val strings = listOf(
+            "1",
+            "1.1",
+            "-1.1",
+            "-0.00001",
+        )
+        for (s in strings) {
+            assertEquals(s, Deci(s, CTX4).toString())
+        }
+    }
+
+    @Test
+    fun common_fromString_notEqual() {
+        val pairs = listOf(
+            "0.10001" to "0.1", // rounded by deciContext
+            ".1" to "0.1",
+            "0.10" to "0.1",
+            "-.1" to "-0.1",
+            "1." to "1",
+        )
+        for ((decStr, expectedStr) in pairs) {
+            assertEquals(expectedStr, Deci(decStr, CTX4).toString())
+        }
     }
 
     private fun assertDecEquals(dec1: Deci, dec2: Deci) = assertTrue(dec1 eq dec2, "Decimals are not equal ($dec1 vs $dec2)")

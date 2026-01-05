@@ -23,8 +23,10 @@ SOFTWARE.
 */
 package com.github.labai.deci
 
+import com.github.labai.deci.RoundingMode.HALF_UP
 import platform.Foundation.NSDecimalNumber
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
@@ -34,7 +36,37 @@ import kotlin.test.assertTrue
 class DeciTest {
 
     @Test
-    fun js_demo1() {
+    fun ios_deciContext_default() {
+        fun checkRound(expectRound: Boolean) {
+            val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+            val d1 = Deci(1, ctx4) / 3.deci * 3.deci
+            val d2 = Deci(1, ctx4) + "1.00004".deci + "1.00004".deci
+            val d3 = Deci(3, ctx4) - "1.00004".deci - "1.00004".deci
+            if (expectRound) {
+                assertEquals("0.9999", d1.toString())
+                assertEquals("3", d2.toString())
+                assertEquals("1", d3.toString())
+            } else {
+                assertEquals("1", d1.toString()) // internally keep precision higher
+                assertEquals("3.0001", d2.toString())
+                assertEquals("0.9999", d3.toString())
+            }
+        }
+        try {
+            checkRound(true)
+            println("Test step - changing default config to not round")
+            Deci.defaultDeciContext = Deci.originalDefaultDeciContext
+                .withConfig(DeciContextConfig(roundToScale = false))
+            checkRound(false)
+        } finally {
+            println("Test step - restoring default config")
+            Deci.defaultDeciContext = Deci.originalDefaultDeciContext
+            checkRound(true)
+        }
+    }
+
+    @Test
+    fun ios_demo1() {
         class Demo1(val quantity: Deci, val price: Deci, val fee: Deci) {
             fun getPercent1(): Deci = (price * quantity - fee) * 100 / (price * quantity) round 2
         }
