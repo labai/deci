@@ -99,13 +99,13 @@ println(Deci("2.5") / Deci("2") round 1)
 Add the Maven dependency:
 
 <details>
-<summary><strong>Maven (jvm)</strong></summary>
+<summary><strong>JVM (maven)</strong></summary>
 
 ```xml
 <dependency>
   <groupId>com.github.labai</groupId>
   <artifactId>deci-jvm</artifactId>
-  <version>0.0.2</version>
+  <version>0.1.0</version>
 </dependency>
 ```
 </details>
@@ -116,7 +116,7 @@ Add the Maven dependency:
 ```kotlin
 sourceSets {
     commonMain.dependencies {
-        implementation("com.github.labai:deci:0.0.2")
+        implementation("com.github.labai:deci:0.1.0")
     }
 }
 ```
@@ -124,4 +124,3 @@ sourceSets {
 
 ## deci.kt
 [more info](../../tree/main/deci) 
-

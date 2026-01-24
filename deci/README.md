@@ -45,8 +45,8 @@ Use maven dependency:
 ```xml
 <dependency>
     <groupId>com.github.labai</groupId>
-    <artifactId>deci</artifactId>
-    <version>0.0.1</version>
+    <artifactId>deci-jvm</artifactId>
+    <version>0.1.0</version>
 </dependency>
 ```
 
@@ -55,7 +55,7 @@ Use maven dependency:
 #### Extension deciExpr
 
 By default, nullable variables are not allowed to be used in math expressions in kotlin.
-To keep consistent behaviour, _Deci_ also doesn't allow nullables in expressions.
+To keep consistent behavior, _Deci_ also doesn't allow nullables in expressions.
 
 But you may use `deciExpr` extension to allow nullables in math expression with such logic,
 that if any of part is null, then result is null.
