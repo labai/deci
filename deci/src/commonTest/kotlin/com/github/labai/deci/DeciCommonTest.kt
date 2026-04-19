@@ -132,15 +132,27 @@ class DeciCommonTest {
     }
 
     @Test
-    fun common_hashcode() {
+    fun common_hashcode_smaller() {
         val list = (0..5).map { Deci("$it.${it}000") }
-        val map = list.map { it to it * 10 }.toMap()
+        val map = list.associate { it to it * 10 }
         // searching in map uses hashcode
         assertEquals(22.deci, map[Deci("2.2")])
         // should be cached
         val d = 22.deci
         assertTrue(d.hashCode() === d.hashCode())
     }
+
+    @Test
+    fun common_hashcode_bigger() {
+        val list = (0..5).map { Deci("${it}000000000.${it}000") }
+        val map = list.associate { it to it * 10 }
+        // searching in map uses hashcode
+        assertEquals(20000000002L.deci, map[Deci("2000000000.2")])
+        // should be cached
+        val d = 20000000002L.deci
+        assertTrue(d.hashCode() === d.hashCode())
+    }
+
 
     @Test
     fun common_exceptions() {

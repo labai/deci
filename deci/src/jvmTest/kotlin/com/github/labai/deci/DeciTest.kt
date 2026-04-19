@@ -23,7 +23,6 @@ SOFTWARE.
 */
 package com.github.labai.deci
 
-import com.github.labai.deci.RoundingMode.DOWN
 import com.github.labai.deci.RoundingMode.HALF_UP
 import java.io.ByteArrayOutputStream
 import java.io.NotSerializableException
@@ -33,7 +32,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
-import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -69,14 +67,14 @@ class DeciTest {
     }
 
     @Test
-    fun jvm_rounding() {
-        assertEquals(BigDecimal("1.11000"), Deci("1.11").round(5).toBigDecimal())
-    }
-
-    @Test
-    fun jvm_toBigDecimal() {
+    fun jvm_toBigDecimal_rounding() {
         assertEquals(BigDecimal("1.11"), (Deci("1.11") round 2).toBigDecimal())
-        assertEquals(BigDecimal("1.1100"), (Deci("1.11") round 4).toBigDecimal())
+        // as TinyDec w/e trailing zeros
+        assertEquals(BigDecimal("1.11"), (Deci("1.11") round 4).toBigDecimal())
+        // ??
+        // as BigDecimal - may have trailing zeros
+        assertEquals(BigDecimal("1002003004.1100"), (Deci("1002003004.1100") round 4).toBigDecimal())
+
         assertDecEquals("1.12", Deci("1.115") round 2)
     }
 

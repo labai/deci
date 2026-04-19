@@ -24,7 +24,7 @@ SOFTWARE.
 package com.github.labai.deci
 
 import com.github.labai.deci.RoundingMode.HALF_UP
-import org.junit.Test
+import org.junit.jupiter.api.Test
 import java.math.BigDecimal
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
