@@ -26,6 +26,7 @@ package com.github.labai.deci.impl
 import com.github.labai.deci.Deci
 import com.github.labai.deci.DeciContext
 import com.github.labai.deci.DecimalJs
+import com.github.labai.deci.jsRoundingMode
 import kotlin.math.max
 
 /*

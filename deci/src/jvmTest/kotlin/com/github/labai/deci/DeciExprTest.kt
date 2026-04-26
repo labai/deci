@@ -199,7 +199,7 @@ class DeciExprTest {
         val defaultCtx = 1.deci.deciContext
         // default is 20, we are losing decimals after 20+ digits inside expression
         val dec = deciExpr { "1.0123456789012345678901234567890123456789".deci * "1e10".deci }
-        assertEquals(defaultCtx, dec!!.deciContext)
+        assertCtxEquals(defaultCtx, dec!!.deciContext)
         assertEquals("10123456789.0123456789", dec.toString())
     }
 
@@ -210,35 +210,35 @@ class DeciExprTest {
     //
     @Test
     fun jvm_deciContext_useFromDeciExpr_nullables() {
-        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+        val ctx4 = DeciContext.of(scale = 4, roundingMode = HALF_UP, precision = 3)
 
         val num1: Deci? = "1.0123456789012345678901234567890123456789".deci // nullable - will use times() from deciExpr
         val dec = deciExpr(ctx4) { num1 * "1e10".deci }
-        assertEquals(ctx4, dec!!.deciContext)
+        assertCtxEquals(ctx4, dec!!.deciContext)
         // assertEquals("10123456789.0123", dec.toString()) // would be such if to keep original from num1
         assertEquals("10123000000", dec.toString())
     }
 
     @Test
     fun jvm_deciContext_useFromDeciExpr_nonNullables() {
-        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+        val ctx4 = DeciContext.of(scale = 4, roundingMode = HALF_UP, precision = 3)
 
         // same for non-nullable
         val num: Deci = "1.0123456789012345678901234567890123456789".deci // non-nullable - also use times() from deciExpr
         val dec = deciExpr(ctx4) { num * "1e10".deci }
-        assertEquals(ctx4, dec!!.deciContext)
+        assertCtxEquals(ctx4, dec!!.deciContext)
         assertEquals("10123000000", dec.toString())
     }
 
     @Test
     fun jvm_deciContext_useFromDeciExpr_biggerScale__jvmVersion() {
-        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
-        val ctx40 = DeciContext(scale = 40, roundingMode = HALF_UP, precision = 30)
+        val ctx4 = DeciContext.of(scale = 4, roundingMode = HALF_UP, precision = 3)
+        val ctx40 = DeciContext.of(scale = 40, roundingMode = HALF_UP, precision = 30)
 
         // if bigger precision - also apply from deciExpr
         val num: Deci? = Deci.valueOf("1.012345", ctx4)
         val dec = deciExpr(ctx40) { num * "1.0123465789".deci }
-        assertEquals(ctx40, dec!!.deciContext)
+        assertCtxEquals(ctx40, dec!!.deciContext)
         // real results:
         // 1.0123 x 1.0123465789 = 1.02479844182047 (jvm)
         // 1.012345 x 1.0123465789 = 1.0248439974165205 (js)
@@ -293,4 +293,8 @@ class DeciExprTest {
     }
 
     private fun assertDecEquals(dec1: Deci, dec2: Deci?) = assertTrue(dec1 eq dec2, "Decimals are not equal ($dec1 vs $dec2)")
+
+    private fun assertCtxEquals(ctx1: DeciContext, ctx2: DeciContext): Boolean {
+        return ctx1.scale == ctx2.scale && ctx1.roundingMode == ctx2.roundingMode && ctx1.precision == ctx2.precision
+    }
 }

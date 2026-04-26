@@ -177,7 +177,7 @@ class TiniUDecPerfTest {
     }
 
     // toString#3 tinyTm=228.333023ms bdecTm=585.179450ms
-//    @Disabled
+    @Disabled
     @Test
     fun test_perf_toString() {
         val times = 10_000_000

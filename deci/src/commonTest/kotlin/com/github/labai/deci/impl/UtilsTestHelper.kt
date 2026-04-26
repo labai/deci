@@ -11,7 +11,7 @@ import com.github.labai.deci.RoundingMode.HALF_UP
  *
  */
 object UtilsTestHelper {
-    internal val CTX4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+    internal val CTX4 = DeciContext.of(scale = 4, roundingMode = HALF_UP, precision = 3)
 
     // decStr -> expectedScale
     internal fun calcScale_testCases(): List<Pair<String, Int>> {

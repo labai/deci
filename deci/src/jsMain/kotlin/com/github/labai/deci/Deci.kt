@@ -24,8 +24,6 @@ SOFTWARE.
 package com.github.labai.deci
 
 import com.github.labai.deci.impl.Utils
-import kotlin.math.max
-import kotlin.math.min
 
 /*
  * @author Augustus
@@ -129,8 +127,8 @@ actual class Deci : Number, Comparable<Deci> {
     internal fun remInternal(other: DecimalJs): Deci = Deci(decimal.modulo(other), deciContext)
 
     actual companion object {
-        internal actual val originalDefaultDeciContext = DeciContext(20, RoundingMode.HALF_UP, 20)
-        actual var defaultDeciContext = originalDefaultDeciContext
+        internal actual val originalDefaultDeciContext: DeciContext = DeciContext.of(20, RoundingMode.HALF_UP, 20)
+        actual var defaultDeciContext: DeciContext = originalDefaultDeciContext
         actual val ZERO: Deci = Deci("0", defaultDeciContext)
 
         actual fun valueOf(int: Int): Deci {

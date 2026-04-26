@@ -68,12 +68,12 @@ class DeciTest {
 
     @Test
     fun jvm_toBigDecimal_rounding() {
-        assertEquals(BigDecimal("1.11"), (Deci("1.11") round 2).toBigDecimal())
+        assertEquals(BigDecimal("1.11"), (Deci("1.11") round 2).toBigDec())
         // as TinyDec w/e trailing zeros
-        assertEquals(BigDecimal("1.11"), (Deci("1.11") round 4).toBigDecimal())
+        assertEquals(BigDecimal("1.11"), (Deci("1.11") round 4).toBigDec())
         // ??
         // as BigDecimal - may have trailing zeros
-        assertEquals(BigDecimal("1002003004.1100"), (Deci("1002003004.1100") round 4).toBigDecimal())
+        assertEquals(BigDecimal("1002003004.1100"), (Deci("1002003004.1100") round 4).toBigDec())
 
         assertDecEquals("1.12", Deci("1.115") round 2)
     }
@@ -88,10 +88,10 @@ class DeciTest {
 
     @Test
     fun jvm_valueOf_withContext() {
-        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+        val ctx4 = DeciContext.of(scale = 4, roundingMode = HALF_UP, precision = 3)
 
         assertEquals(2.deci, Deci.valueOf(2.toBigDecimal(), ctx4))
-        assertEquals(ctx4, Deci.valueOf(2.toBigDecimal(), ctx4).deciContext)
+        assertCtxEquals(ctx4, Deci.valueOf(2.toBigDecimal(), ctx4).deciContext)
     }
 
     @Test
@@ -105,10 +105,10 @@ class DeciTest {
         //  - if provided < 4 - then use provided scale
         //  - use 4 - if provided scale is bigger
         //      - but keep minimum precision 3 (minimum non zero digits)
-        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+        val ctx4 = DeciContext.of(scale = 4, roundingMode = HALF_UP, precision = 3)
         fun checkScale(expectedScale: Int, num: String) {
-            assertEquals(expectedScale, Deci(BigDecimal(num), ctx4).toBigDecimal().scale())
-            assertEquals(expectedScale, Deci(BigDecimal("-$num"), ctx4).toBigDecimal().scale()) // check with negative value also
+            assertEquals(expectedScale, Deci(BigDecimal(num), ctx4).toBigDec().scale())
+            assertEquals(expectedScale, Deci(BigDecimal("-$num"), ctx4).toBigDec().scale()) // check with negative value also
         }
 
         checkScale(0, "1.1e+5")
@@ -132,7 +132,7 @@ class DeciTest {
 
     @Test
     fun jvm_divScale() {
-        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+        val ctx4 = DeciContext.of(scale = 4, roundingMode = HALF_UP, precision = 3)
         fun checkDivScale(expectedScale: Int, num: String, divisor: String) {
             assertEquals(expectedScale, Deci(BigDecimal(num), ctx4).calcDivScale(BigDecimal(divisor)))
             assertEquals(expectedScale, Deci(BigDecimal("-$num"), ctx4).calcDivScale(BigDecimal(divisor))) // check with negative value also
@@ -194,7 +194,7 @@ class DeciTest {
         }
         val demo = Demo1("12.2".deci, "55.97".deci, "15.5".deci)
 
-        val res2: BigDecimal = ((demo.price * demo.quantity - demo.fee) * 100 / (demo.price * demo.quantity) round 8).toBigDecimal()
+        val res2: BigDecimal = ((demo.price * demo.quantity - demo.fee) * 100 / (demo.price * demo.quantity) round 8).toBigDec()
 
         assertDecEquals("97.73004859", res2)
         assertDecEquals("97.73", demo.getPercent1())
@@ -203,6 +203,10 @@ class DeciTest {
     private fun assertDecEquals(dec1: Deci, dec2: Deci) = assertTrue(dec1 eq dec2, "Decimals are not equal ($dec1 vs $dec2)")
     private fun assertDecEquals(dec1: String, dec2: Deci) = assertTrue(Deci(dec1) eq dec2, "Decimals are not equal ($dec1 vs $dec2)")
     private fun assertDecEquals(dec1: String, dec2: BigDecimal) = assertTrue(BigDecimal(dec1) eq dec2, "Decimals are not equal ($dec1 vs $dec2)")
+
+    private fun assertCtxEquals(ctx1: DeciContext, ctx2: DeciContext): Boolean {
+        return ctx1.scale == ctx2.scale && ctx1.roundingMode == ctx2.roundingMode && ctx1.precision == ctx2.precision
+    }
 
     private infix fun BigDecimal?.eq(other: BigDecimal?): Boolean {
         if (this == null && other == null) return true

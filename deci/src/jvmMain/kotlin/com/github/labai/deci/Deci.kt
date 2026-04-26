@@ -23,6 +23,9 @@ SOFTWARE.
 */
 package com.github.labai.deci
 
+import com.github.labai.deci.DeciContextImpl.Companion.MASK_11BITS
+import com.github.labai.deci.DeciContextImpl.Companion.MASK_25BITS
+import com.github.labai.deci.DeciContextImpl.Companion.MASK_3BITS
 import com.github.labai.deci.impl.TinyUDecMath
 import com.github.labai.deci.impl.TinyUDecMath.ERR
 import com.github.labai.deci.impl.TinyUDecMath.TinyUDec
@@ -35,37 +38,70 @@ import kotlin.math.min
  *   created on 2020.11.18
  *
  * JVM version of Deci
+ *
+ * here we try to fit into minimum amount of memory.
+ * For small decimals we use TinyUDec, which fits into 32 bits
+ * And only when TinyUDec isn't enough, then use BigDecimal.
+ *
+ * For DeciContext also use part of integer (25 bits), other few bits are used as flags in Deci,
+ *
+ *
+ *
 */
-actual class Deci : Number, Comparable<Deci> {
+actual class Deci : Number, Comparable<Deci>, DeciContext {
 
     internal actual val deciContext: DeciContext
+        get() = this
 
-    constructor(decimal: BigDecimal, deciContext: DeciContext) : this(decimal, null, null, null, deciContext)
+    private var decimal: BigDecimal? = null
+    private var tinyDec: TinyUDec = ERR
+    private var mixed: Int = 0
 
-    private constructor(decimal: BigDecimal?, tinyDec: TinyUDec? = null, str: String? = null, long: Long? = null, deciCtx: DeciContext = defaultDeciContext) : super() {
-        this.deciContext = deciCtx
+    constructor(decimal: BigDecimal, deciContext: DeciContext) : this(decimal, null, false, null, null, deciContext)
+
+    private constructor(
+        decimal: BigDecimal?,
+        tinyDec: TinyUDec? = null,
+        tinyNegative: Boolean = false,
+        str: String? = null,
+        long: Long? = null,
+        deciCtx: DeciContext? = null,
+    ) : super() {
+        val deciCtx = deciCtx ?: defaultDeciContext
+        this.setDeciContext(deciCtx)
         if (decimal != null) {
             this.decimal = applyDeciContext(decimal, deciCtx)
         } else if (tinyDec != null) {
             if (tinyDec.pos() <= deciCtx.scale) {
                 this.decimal = null
                 this.tinyDec = tinyDec
+                if (tinyNegative)
+                    setFlagOn(FLAG_NEGATIVE)
             } else {
-                this.decimal = applyDeciContext(tinyDec.toBigDecimal(), deciCtx)
+                val bd = if (tinyNegative) tinyDec.toBigDecimal().negate() else tinyDec.toBigDecimal()
+                this.decimal = applyDeciContext(bd, deciCtx)
             }
         } else if (str != null) {
-            val tiny = TinyUDecMath.parseStringOrErr(str)
+            val isNeg = str.startsWith('-')
+            val absStr = if (isNeg) str.substring(1) else str
+            val tiny = TinyUDecMath.parseStringOrErr(absStr)
             if (tiny != ERR && tiny.pos() <= deciCtx.scale) {
                 this.decimal = null
                 this.tinyDec = tiny
+                if (isNeg)
+                    setFlagOn(FLAG_NEGATIVE)
             } else {
                 this.decimal = applyDeciContext(BigDecimal(str), deciCtx)
             }
         } else if (long != null) {
-            val tiny = TinyUDecMath.convertToTinyOrErr(long)
+            val isNeg = long < 0
+            val absLong = if (isNeg) -long else long
+            val tiny = TinyUDecMath.convertToTinyOrErr(absLong)
             if (tiny != ERR) {
                 this.decimal = null
                 this.tinyDec = tiny
+                if (isNeg)
+                    setFlagOn(FLAG_NEGATIVE)
             } else {
                 this.decimal = BigDecimal(long)
             }
@@ -82,19 +118,22 @@ actual class Deci : Number, Comparable<Deci> {
     actual constructor(long: Long, deciContext: DeciContext) : this(decimal = null, long = long, deciCtx = deciContext)
     actual constructor(long: Long) : this(decimal = null, long = long)
 
-    private var decimal: BigDecimal?
+    actual operator fun unaryMinus(): Deci {
+        if (tinyDec != ERR) {
+            if (tinyDec.isZero())
+                return this
+            return Deci(null, tinyDec = tinyDec, tinyNegative = !isNegative(), deciCtx = deciContext)
+        }
+        return Deci(decimal!!.negate(), deciContext)
+    }
 
-    private var tinyDec: TinyUDec = ERR
+    actual override fun toByte(): Byte = decimal?.toByte() ?: (if (isNegative()) -tinyDec.intPart() else tinyDec.intPart()).toByte()
 
-    actual operator fun unaryMinus(): Deci = Deci(toBigDecimal().negate(), deciContext)
-
-    actual override fun toByte(): Byte = decimal?.toByte() ?: tinyDec.intPart().toByte()
-
-    actual override fun toDouble(): Double = toBigDecimal().toDouble()
-    actual override fun toFloat(): Float = toBigDecimal().toFloat()
-    actual override fun toInt(): Int = decimal?.toInt() ?: tinyDec.intPart()
-    actual override fun toLong(): Long = decimal?.toLong() ?: tinyDec.intPart().toLong()
-    actual override fun toShort(): Short = decimal?.toShort() ?: tinyDec.intPart().toShort()
+    actual override fun toDouble(): Double = toBigDec().toDouble()
+    actual override fun toFloat(): Float = toBigDec().toFloat()
+    actual override fun toInt(): Int = decimal?.toInt() ?: (if (isNegative()) -tinyDec.intPart() else tinyDec.intPart())
+    actual override fun toLong(): Long = decimal?.toLong() ?: (if (isNegative()) -tinyDec.intPart().toLong() else tinyDec.intPart().toLong())
+    actual override fun toShort(): Short = decimal?.toShort() ?: (if (isNegative()) -tinyDec.intPart() else tinyDec.intPart()).toShort()
 
     actual fun applyDeciContext(deciContext: DeciContext): Deci {
         return if (this.deciContext == deciContext) this else Deci(this.decimal, this.tinyDec, deciCtx = deciContext)
@@ -111,31 +150,21 @@ actual class Deci : Number, Comparable<Deci> {
 
     actual override fun compareTo(other: Deci): Int {
         if (tinyDec != ERR && other.tinyDec != ERR) {
-            return tinyDec.compareTo(other.tinyDec)
+            val aneg = isNegative()
+            val bneg = other.isNegative()
+            return when {
+                aneg && !bneg -> -1
+                !aneg && bneg -> 1
+                aneg -> other.tinyDec.compareTo(tinyDec) // both negative: reverse magnitude order
+                else -> tinyDec.compareTo(other.tinyDec)
+            }
         }
-        if (decimal != null && other.decimal != null) {
-            return decimal!!.compareTo(other.decimal)
-        }
-        val a: BigDecimal
-        val b: TinyUDec
-        if (tinyDec == ERR && other.tinyDec != ERR) {
-            a = this.decimal!!
-            b = other.tinyDec
-        } else if (tinyDec != ERR) {
-            a = other.decimal!!
-            b = tinyDec
-        } else {
-            error("Illegal state")
-        }
-        val at = TinyUDecMath.convertToTinyOrErr(a)
-        if (at != ERR)
-            return at.compareTo(b)
-        return a.compareTo(b.toBigDecimal())
+        return toBigDec().compareTo(other.toBigDec())
     }
 
     actual override fun toString(): String {
         if (tinyDec != ERR)
-            return tinyDec.toString()
+            return if (isNegative()) "-${tinyDec}" else tinyDec.toString()
         return decimal!!.stripTrailingZeros().toPlainString()
     }
 
@@ -144,19 +173,19 @@ actual class Deci : Number, Comparable<Deci> {
         if (javaClass != other?.javaClass) return false
         other as Deci
         if (tinyDec != ERR && other.tinyDec != ERR) {
+            if (isNegative() != other.isNegative()) return false
             return tinyDec.isEqual(other.tinyDec)
         }
         return compareTo(other) == 0
     }
 
     actual override fun hashCode(): Int {
-        if (tinyDec != ERR)
-            return tinyDec.hashCode()
-        val dec = normalizeDecimal()
-        val tiny = TinyUDecMath.convertToTinyOrErr(dec)
-        if (tiny != ERR)
-            return tiny.hashCode()
-        return dec.hashCode()
+        tryInitTinyDec()
+        if (tinyDec != ERR) {
+            val h = tinyDec.hashCode()
+            return if (isNegative()) h.inv() else h
+        }
+        return decimal!!.hashCode()
     }
 
     internal fun calcDivScale(divisor: BigDecimal): Int {
@@ -181,40 +210,107 @@ actual class Deci : Number, Comparable<Deci> {
     }
 
     internal fun plusInternal(other: Deci): Deci {
-        return doOperation(other, { a, b -> a.add(b) }, { a, b -> a.add(b) })
-    }
-    internal fun minusInternal(other: Deci): Deci {
-        return doOperation(other, { a, b -> a.sub(b) }, { a, b -> a.subtract(b) })
-    }
-    internal fun timesInternal(other: Deci): Deci {
-        return doOperation(other, { a, b -> a.mul(b) }, { a, b -> a.multiply(b) })
-    }
-    internal fun divInternal(other: Deci): Deci {
-        return doOperation(other, { a, b -> a.tryDiv(b) }, { a, b -> a.divide(b, calcDivScale(b), deciContext.javaRoundingMode) })
-    }
-    internal fun remInternal(other: Deci): Deci {
-        return doOperation(other, { a, b -> a.rem(b) }, { a, b -> a.rem(b) })
-    }
-
-    private inline fun doOperation(other: Deci, tinyOp: (a: TinyUDec, b: TinyUDec) -> TinyUDec, bdecOp: (a: BigDecimal, b: BigDecimal) -> BigDecimal): Deci {
         if (tinyDec != ERR && other.tinyDec != ERR) {
-            val rtin = tinyOp(tinyDec, other.tinyDec)
-            if (rtin != ERR)
-                return Deci(null, rtin, deciCtx = deciContext)
+            val r = addTinySigned(other)
+            if (r != null)
+                return r
         }
-        val rdec = bdecOp(toBigDecimal(), other.asDecimal())
-        return Deci(rdec, deciContext)
+        return Deci(toBigDec().add(other.toBigDec()), deciContext)
     }
 
-    fun toBigDecimal(): BigDecimal {
+    internal fun minusInternal(other: Deci): Deci {
+        if (tinyDec != ERR && other.tinyDec != ERR) {
+            // subtract = add with sign of other flipped
+            val r = addTinySigned(other, negateOther = true)
+            if (r != null)
+                return r
+        }
+        return Deci(toBigDec().subtract(other.toBigDec()), deciContext)
+    }
+
+    internal fun timesInternal(other: Deci): Deci {
+        if (tinyDec != ERR && other.tinyDec != ERR) {
+            val r = mulDivTinySigned(other) { a, b -> a.mul(b) }
+            if (r != null)
+                return r
+        }
+        return Deci(toBigDec().multiply(other.toBigDec()), deciContext)
+    }
+
+    internal fun divInternal(other: Deci): Deci {
+        if (tinyDec != ERR && other.tinyDec != ERR) {
+            val r = mulDivTinySigned(other) { a, b -> a.tryDiv(b) }
+            if (r != null)
+                return r
+        }
+        val a = toBigDec()
+        val b = other.toBigDec()
+        val dec = a.divide(b, calcDivScale(b), deciContext.javaRoundingMode)
+        return Deci(dec, deciContext)
+    }
+
+    internal fun remInternal(other: Deci): Deci {
+        if (tinyDec != ERR && other.tinyDec != ERR) {
+            val r = remTinySigned(other)
+            if (r != null)
+                return r
+        }
+        return Deci(this.toBigDec().rem(other.toBigDec()), deciContext)
+    }
+
+    // Signed addition of two tinyDec values, optionally negating the other operand (for subtraction).
+    // Returns null if the result overflows TinyUDec range — caller falls back to BigDecimal.
+    private fun addTinySigned(other: Deci, negateOther: Boolean = false): Deci? {
+        val aneg = isNegative()
+        val bneg = other.isNegative() xor negateOther
+        if (aneg == bneg) {
+            // same sign: magnitudes add, sign is preserved
+            val r = this.tinyDec.add(other.tinyDec)
+            if (r == ERR) return null
+            return Deci(null, tinyDec = r, tinyNegative = aneg, deciCtx = deciContext)
+        }
+        // different signs: subtract smaller magnitude from larger, sign follows the larger
+        if (this.tinyDec > other.tinyDec) {
+            val r = this.tinyDec.sub(other.tinyDec)
+            if (r == ERR) return null
+            return Deci(null, tinyDec = r, tinyNegative = aneg, deciCtx = deciContext)
+        }
+        val r = other.tinyDec.sub(this.tinyDec)
+        if (r == ERR) return null
+        return Deci(null, tinyDec = r, tinyNegative = bneg, deciCtx = deciContext)
+    }
+
+    // Signed multiplication/division of two tinyDec values.
+    // Returns null if the result overflows TinyUDec range — caller falls back to BigDecimal.
+    private inline fun mulDivTinySigned(other: Deci, mulDivFn: (TinyUDec, TinyUDec) -> TinyUDec): Deci? {
+        val r = mulDivFn(this.tinyDec, other.tinyDec)
+        if (r == ERR) return null
+        val resultNeg = (isNegative() xor other.isNegative()) && !r.isZero()
+        return Deci(null, tinyDec = r, tinyNegative = resultNeg, deciCtx = deciContext)
+    }
+
+    // Signed remainder of two tinyDec values.
+    // Returns null if the result overflows TinyUDec range — caller falls back to BigDecimal.
+    private fun remTinySigned(other: Deci): Deci? {
+        val r = this.tinyDec.rem(other.tinyDec)
+        if (r == ERR) return null
+        val resultNeg = isNegative() && !r.isZero() // take form 1st operand
+        return Deci(null, tinyDec = r, tinyNegative = resultNeg, deciCtx = deciContext)
+    }
+
+    internal fun toBigDec(): BigDecimal {
         if (decimal != null)
             return decimal!!
-        val d = TinyUDecMath.toBigDecimal(tinyDec)
+        val tiny = normalizeTinyDec()
+        val d = TinyUDecMath.toBigDecimal(tiny).let { if (isNegative()) it.negate() else it }
+        setFlagOn(FLAG_BIGD_TRIM)
         decimal = d
         return d
     }
 
     private fun normalizeDecimal(): BigDecimal {
+        if (isFlag(FLAG_BIGD_TRIM))
+            return decimal!!
         val dec = if (decimal != null) {
             decimal!!
         } else {
@@ -223,31 +319,89 @@ actual class Deci : Number, Comparable<Deci> {
         }
         val decn = dec.stripTrailingZeros()
         decimal = decn
+        setFlagOn(FLAG_BIGD_TRIM)
         return decn
     }
 
     private inline fun asDecimal(): BigDecimal {
-        return decimal ?: TinyUDecMath.toBigDecimal(tinyDec)
+        return decimal ?: TinyUDecMath.toBigDecimal(tinyDec).let { if (isNegative()) it.negate() else it }
     }
 
+    // sometimes we want to have tinyDec even we already have decimal.
+    // also normalize tiny (if valid)
+    private fun tryInitTinyDec() {
+        if (!isFlag(FLAG_TINY_INIT)) {
+            val dec = normalizeDecimal()
+            tinyDec = TinyUDec.valueOf(dec)
+            setFlagOn(FLAG_TINY_TRIM)
+            setFlagOn(FLAG_TINY_INIT)
+        } else {
+            normalizeTinyDec()
+        }
+    }
+
+    internal fun normalizeTinyDec(): TinyUDec {
+        if (isFlag(FLAG_TINY_TRIM))
+            return tinyDec
+        val dn = tinyDec.trimTrailingZeros()
+        this.tinyDec = dn
+        setFlagOn(FLAG_TINY_TRIM)
+        return dn
+    }
+
+    // ----------------------------------------------------------------
+    // implement DeciContext using "mixed" value and share it with boolean flags for Deci
+    // so we can fit into single 32 bit integer
+    override val scale: Int
+        get() = mixed and MASK_11BITS
+    override val roundingMode: RoundingMode
+        get() = RoundingMode.entries[(mixed ushr 22) and MASK_3BITS]
+    override val precision: Int
+        get() = (mixed shr 11) and MASK_11BITS
+    private fun setDeciContextValue(ctxVal: Int) {
+        mixed = (mixed and DeciContextImpl.MASK_25BITS_INV) or (ctxVal and MASK_25BITS)
+    }
+    private fun setDeciContext(deciCtx: DeciContext) {
+        val mixed: Int = when (deciCtx) {
+            is Deci -> deciCtx.mixed
+            is DeciContextImpl -> deciCtx.mixed
+            else -> DeciContextImpl.convDeciCtxValue(deciCtx)
+        }
+        setDeciContextValue(mixed)
+    }
+    private inline fun isFlag(flag: Int) = mixed and flag != 0
+    private fun setFlagOn(flag: Int) {
+        mixed = mixed or flag
+    }
+    private fun setFlagOff(flag: Int) {
+        mixed = mixed and (flag.inv())
+    }
+    private inline fun isNegative() = isFlag(FLAG_NEGATIVE)
+    // ----------------------------------------------------------------
 
     actual companion object {
-        internal actual val originalDefaultDeciContext = DeciContext(20, RoundingMode.HALF_UP, 20)
-        actual var defaultDeciContext = originalDefaultDeciContext
+        internal actual val originalDefaultDeciContext: DeciContext = DeciContextImpl(20, RoundingMode.HALF_UP, 20)
+        private val defaultDeciContextValue = (originalDefaultDeciContext as DeciContextImpl).mixed
+        actual var defaultDeciContext: DeciContext = originalDefaultDeciContext
 
-        actual val ZERO = Deci(0L).apply { toBigDecimal() }
         // few popular numbers
-        private val D1 = Deci(1L).apply { toBigDecimal() }
-        private val D2 = Deci(2L).apply { toBigDecimal() }
-        private val D10 = Deci(10L).apply { toBigDecimal() }
-        private val D100 = Deci(100L).apply { toBigDecimal() }
-        private val D1000 = Deci(1000L).apply { toBigDecimal() }
+        actual val ZERO = Deci(0L).apply { toBigDec() }
+        private val D1 = Deci(1L).apply { toBigDec() }
+        private val D2 = Deci(2L).apply { toBigDec() }
+        private val D10 = Deci(10L).apply { toBigDec() }
+        private val D100 = Deci(100L).apply { toBigDec() }
+        private val D1000 = Deci(1000L).apply { toBigDec() }
+
+        private const val FLAG_TINY_INIT: Int = 1 shl 26
+        private const val FLAG_TINY_TRIM: Int = 1 shl 27
+        private const val FLAG_BIGD_TRIM: Int = 1 shl 28
+        private const val FLAG_NEGATIVE: Int = 1 shl 29
 
         actual fun valueOf(int: Int): Deci {
             return when (int) {
-                0 -> ZERO
-                in 1..1000 -> {
+                in 0..1000 -> {
                     when (int) {
+                        0 -> ZERO
                         1 -> D1
                         2 -> D2
                         10 -> D10
@@ -262,8 +416,17 @@ actual class Deci : Number, Comparable<Deci> {
 
         actual fun valueOf(long: Long): Deci {
             return when (long) {
-                0L -> ZERO
-                in 1L..1000L -> Deci(long.toInt())
+                in 0L..1000L -> {
+                    when (long) {
+                        0L -> ZERO
+                        1L -> D1
+                        2L -> D2
+                        10L -> D10
+                        100L -> D100
+                        1000L -> D1000
+                        else -> Deci(long)
+                    }
+                }
                 else -> Deci(long)
             }
         }
@@ -294,7 +457,7 @@ actual operator fun Deci.times(other: Long): Deci = this.timesInternal(other.dec
 actual operator fun Deci.div(other: Long): Deci = this.divInternal(other.deci)
 actual operator fun Deci.rem(other: Long): Deci = this.remInternal(other.deci)
 
-fun Deci?.toBigDecimal(): BigDecimal? = this?.toBigDecimal()
+fun Deci?.toBigDecimal(): BigDecimal? = this?.toBigDec()
 
 //
 // BigDecimal extensions
@@ -302,7 +465,7 @@ fun Deci?.toBigDecimal(): BigDecimal? = this?.toBigDecimal()
 val BigDecimal.deci: Deci
     inline get() = Deci(this)
 
-infix fun BigDecimal.eq(other: Deci) = this.compareTo(other.toBigDecimal()) == 0
+infix fun BigDecimal.eq(other: Deci) = this.compareTo(other.toBigDec()) == 0
 
 //
 // additional Deci methods
@@ -325,7 +488,7 @@ actual fun Deci.Companion.valueOf(str: String): Deci = Deci(str.toBigDecimal())
 
 actual fun Deci.Companion.valueOf(num: Number, deciContext: DeciContext): Deci {
     return when (num) {
-        is Deci -> if (deciContext == num.deciContext) num else Deci(num.toBigDecimal(), deciContext)
+        is Deci -> if (deciContext == num.deciContext) num else Deci(num.toBigDec(), deciContext)
         is BigDecimal -> Deci(num, deciContext)
         is Int -> Deci(num.toLong().toBigDecimal(), deciContext)
         is Long -> Deci(num.toBigDecimal(), deciContext)

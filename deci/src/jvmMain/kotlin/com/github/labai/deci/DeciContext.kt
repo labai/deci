@@ -33,28 +33,65 @@ import java.math.RoundingMode as JavaRoundingMode
  * JVM version of DeciContext
  *
 */
-actual data class DeciContext actual constructor(
-    actual val scale: Int,
-    actual val roundingMode: RoundingMode,
+actual interface DeciContext : Serializable {
+    actual val scale: Int
+    actual val roundingMode: RoundingMode
     actual val precision: Int
-) : Serializable {
 
-    internal val javaRoundingMode: JavaRoundingMode
-        get() = roundingMode.toJava()
+    actual companion object {
+        actual fun of(scale: Int, roundingMode: RoundingMode, precision: Int): DeciContext {
+            return DeciContextImpl(scale, roundingMode, precision)
+        }
 
-    actual constructor(scale: Int) : this(scale, RoundingMode.HALF_UP)
+        actual fun of(scale: Int, roundingMode: RoundingMode): DeciContext {
+            return DeciContextImpl(scale, roundingMode, scale)
+        }
 
-    actual constructor(scale: Int, roundingMode: RoundingMode) : this(scale, roundingMode, scale)
+        actual fun of(scale: Int): DeciContext {
+            return DeciContextImpl(scale, RoundingMode.HALF_UP, scale)
+        }
+    }
+}
 
-    init {
+internal class DeciContextImpl : DeciContext {
+    override val scale: Int
+    override val roundingMode: RoundingMode
+    override val precision: Int
+    internal val mixed: Int
+
+    constructor(scale: Int, roundingMode: RoundingMode, precision: Int) {
+        this.scale = scale
+        this.roundingMode = roundingMode
+        this.precision = precision
         check(scale >= 0) { "scale must be >= 0 (is $scale)" }
         check(scale <= 2000) { "scale must be <= 2000 (is $scale)" }
         check(precision >= 1) { "precision must be >= 1 (is $precision)" }
         check(precision <= 2000) { "precision must be <= 2000 (is $precision)" }
+        this.mixed = convDeciCtxValue(scale, roundingMode, precision)
     }
 
     override fun toString(): String = "DeciContext($scale:$precision:${roundingMode.toString().lowercase()})"
+
+    companion object {
+        internal const val MASK_3BITS = 0b111
+        internal const val MASK_11BITS = 0b11111111111
+        internal const val MASK_25BITS = 0b00000001111111111111111111111111
+        internal const val MASK_25BITS_INV = 0b1111110000000000000000000000000
+
+        // convert to 25 bits
+        internal fun convDeciCtxValue(ctx: DeciContext): Int {
+            return convDeciCtxValue(ctx.scale, ctx.roundingMode, ctx.precision)
+        }
+        internal fun convDeciCtxValue(scale: Int, roundingMode: RoundingMode, precision: Int): Int {
+            return ((roundingMode.ordinal and MASK_3BITS) shl 22) or
+                ((precision and MASK_11BITS) shl 11) or
+                (scale and MASK_11BITS)
+        }
+    }
 }
+
+internal val DeciContext.javaRoundingMode: JavaRoundingMode
+    get() = this.roundingMode.toJava()
 
 internal fun RoundingMode.toJava(): JavaRoundingMode = when (this) {
     RoundingMode.HALF_UP -> JavaRoundingMode.HALF_UP

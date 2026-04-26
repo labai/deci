@@ -53,12 +53,14 @@ package com.github.labai.deci
  *
  */
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
-expect class DeciContext {
-    constructor(scale: Int, roundingMode: RoundingMode, precision: Int)
-    constructor(scale: Int, roundingMode: RoundingMode)
-    constructor(scale: Int)
-
+expect interface DeciContext {
     val scale: Int
     val roundingMode: RoundingMode
     val precision: Int
+
+    companion object {
+        fun of(scale: Int, roundingMode: RoundingMode, precision: Int): DeciContext
+        fun of(scale: Int, roundingMode: RoundingMode): DeciContext
+        fun of(scale: Int): DeciContext
+    }
 }

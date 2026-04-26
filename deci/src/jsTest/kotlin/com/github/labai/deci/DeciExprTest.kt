@@ -35,8 +35,8 @@ class DeciExprTest {
 
     @Test
     fun js_deciContext_useFromDeciExpr_biggerScale__jsVersion() {
-        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
-        val ctx40 = DeciContext(scale = 40, roundingMode = HALF_UP, precision = 30)
+        val ctx4 = DeciContext.of(scale = 4, roundingMode = HALF_UP, precision = 3)
+        val ctx40 = DeciContext.of(scale = 40, roundingMode = HALF_UP, precision = 30)
 
         // if bigger precision - also apply from deciExpr
         val num: Deci? = Deci.valueOf("1.012345", ctx4)

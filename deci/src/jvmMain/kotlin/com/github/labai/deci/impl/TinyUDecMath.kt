@@ -43,7 +43,7 @@ internal object TinyUDecMath {
     @JvmInline
     value class TinyUDec (
         internal val tiny: Int
-    ) {
+    ) : Comparable<TinyUDec> {
         inline fun pos() = tiny ushr 30
         inline fun unscaled() = (tiny and MASK_VALUE)
         internal inline fun getPow10() = POW[pos()]
@@ -56,10 +56,12 @@ internal object TinyUDecMath {
         fun intPart() = getIntPart(this)
         fun decPart() = getDecPart(this)
         fun toBigDecimal(): BigDecimal = toBigDecimal(this)
-        fun compareTo(other: TinyUDec) = compare(this, other)
+        override fun compareTo(other: TinyUDec) = compare(this, other)
         override fun toString(): String = toString(this)
         fun isEqual(other: TinyUDec): Boolean = isEqual(this, other)
         internal fun trimTrailingZeros(): TinyUDec = trimTrailingZeros(this)
+        internal fun isZero(): Boolean = unscaled() == 0
+
         companion object {
             fun parseString(str: String) = TinyUDecMath.parseString(str)
             fun valueOf(bigdec: BigDecimal): TinyUDec = convertToTinyOrErr(bigdec)
@@ -79,28 +81,6 @@ internal object TinyUDecMath {
         10000000,             // 7 / 10^7
         100000000,            // 8 / 10^8
         1000000000,           // 9 / 10^9
-    )
-
-    private val POW_LONG: LongArray = longArrayOf(
-        1L,                   // 0 / 10^0
-        10L,                  // 1 / 10^1
-        100L,                 // 2 / 10^2
-        1000L,                // 3 / 10^3
-        10000L,               // 4 / 10^4
-        100000L,              // 5 / 10^5
-        1000000L,             // 6 / 10^6
-        10000000L,            // 7 / 10^7
-        100000000L,           // 8 / 10^8
-        1000000000L,          // 9 / 10^9
-        10000000000L,         // 10 / 10^10
-        100000000000L,        // 11 / 10^11
-        1000000000000L,       // 12 / 10^12
-        10000000000000L,      // 13 / 10^13
-        100000000000000L,     // 14 / 10^14
-        1000000000000000L,    // 15 / 10^15
-        10000000000000000L,   // 16 / 10^16
-        100000000000000000L,  // 17 / 10^17
-        1000000000000000000L, // 18 / 10^18
     )
 
     // no check, for private usage
@@ -167,29 +147,47 @@ internal object TinyUDecMath {
         return BigDecimal.valueOf(tiny.unscaled().toLong(), tiny.pos())
     }
 
-    internal fun parseStringOrErr(str: String): TinyUDec {
-        return try {
-            parseString(str)
-        } catch (_: Exception) {
-            ERR
-        }
+    internal inline fun parseStringOrErr(str: String): TinyUDec {
+        return parseStringOrErr(str, true)
     }
 
     internal fun parseString(str: String): TinyUDec {
-        require(str.isNotEmpty()) { "String is empty" }
-        require(str[0] != '-') { "Only positive numbers are allowed." }
+        return parseStringOrErr(str, false)
+    }
+
+    private inline fun raiseIfNotSilent(silent: Boolean, lazyMessage: () -> Any): Unit? {
+        if (!silent) {
+            val message = lazyMessage()
+            throw IllegalArgumentException(message.toString())
+        }
+        return null
+    }
+
+    private fun parseStringOrErr(str: String, silent: Boolean): TinyUDec {
+        if (str.isEmpty()) raiseIfNotSilent(silent) { "String is empty" } ?: return ERR
+        if (str[0] == '-') raiseIfNotSilent(silent) { "Only positive numbers are allowed." } ?: return ERR
 
         val dot = str.indexOf('.')
 
         if (dot < 0) {
-            require(str.length <= MAX_STR_LEN + 1) { "String value too long: $str" } // may include '+'
-            return buildTiny(str.toInt(), 0)
+            if (str.length > MAX_STR_LEN + 1) raiseIfNotSilent(silent) { "String value too long: $str" }  ?: return ERR // may include '+'
+            val int = try {
+                str.toInt()
+            } catch (_: Exception) {
+                raiseIfNotSilent(silent) { "Invalid number format: $str" }
+                return ERR
+            }
+            return if (silent)
+                buildTinyOrErr(int, 0)
+            else
+                buildTiny(int, 0)
         }
         var end = str.length - 1
         while (end > dot && str[end] == '0') // skip trailing zeros
             end--
 
         val pos = if (end <= dot) 0 else end - dot
+        if (pos > MAX_POS) raiseIfNotSilent(silent) { "Too big precision: $str" } ?: return ERR
 
         val start = if (str[0] == '+') 1 else 0
 
@@ -198,13 +196,16 @@ internal object TinyUDecMath {
         for (i in start..end) {
             if (i == dot) continue
             val c = str[i]
-            require(c in '0'..'9') { "Invalid character '$c' in: $str" }
+            if (c !in '0'..'9') raiseIfNotSilent(silent) { "Invalid character '$c' in: $str" } ?: return ERR
             value = value * 10 + (c - '0')
             digitCount++
         }
 
-        require(digitCount <= MAX_INT_LEN) { "String value too long: $str" }
-        return buildTiny(value, pos)
+        if (digitCount > MAX_INT_LEN) raiseIfNotSilent(silent) { "String value too long: $str" } ?: return ERR
+        return if (silent)
+            buildTinyOrErr(value, pos)
+        else
+            buildTiny(value, pos)
     }
 
     fun convertToTinyOrErr(value: Long): TinyUDec {
