@@ -145,10 +145,8 @@ class TiniUDecPerfTest {
         runCompareTest("add", tinyFn, bdecFn)
     }
 
-    // parse#3 tinyTm=356.467606ms bdecTm=363.806815ms
-    //
-    // for integers:
-    // parse#3 tinyTm=332.795091ms bdecTm=253.130603ms
+
+    // parse#3 tiny=336ms bdec=454ms
     @Disabled
     @Test
     fun test_perf_parseString() {
@@ -158,7 +156,7 @@ class TiniUDecPerfTest {
             var n = 0
             var tmp: TinyUDec
             for (i in 1..times) {
-                val b1 = TinyUDecMath.parseString("12345.780")
+                val b1 = TinyUDecMath.parseString("12345.7080000")
                 n += b1.tiny
             }
             n
@@ -167,7 +165,7 @@ class TiniUDecPerfTest {
         val bdecFn = {
             var n = 0
             for (i in 1..times) {
-                val b1 = BigDecimal("12345.780")
+                val b1 = BigDecimal("12345.7080000")
                 n += b1.scale()
             }
             n
@@ -273,7 +271,7 @@ class TiniUDecPerfTest {
         for (i in 1..3) {
             val bdecTm = measureTime { bdecFn() }
             val tinyTm = measureTime { tinyFn() }
-            println("($i) tinyTm=$tinyTm bdecTm=$bdecTm")
+            println("($i) tiny=${tinyTm.inWholeMilliseconds}ms bdec=${bdecTm.inWholeMilliseconds}ms")
         }
         assertTrue(n > 0)
     }
@@ -288,7 +286,7 @@ class TiniUDecPerfTest {
             val tinyTm = measureTime {
                 n += tinyLoopFn()
             }
-            println("$name#$i tinyTm=$tinyTm bdecTm=$bdecTm")
+            println("$name#$i tiny=${tinyTm.inWholeMilliseconds}ms bdec=${bdecTm.inWholeMilliseconds}ms")
         }
         assertTrue(n > Int.MIN_VALUE)
     }

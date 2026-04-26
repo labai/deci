@@ -155,57 +155,62 @@ internal object TinyUDecMath {
         return parseStringOrErr(str, false)
     }
 
-    private inline fun raiseIfNotSilent(silent: Boolean, lazyMessage: () -> Any): Unit? {
-        if (!silent) {
-            val message = lazyMessage()
-            throw IllegalArgumentException(message.toString())
-        }
-        return null
+    private inline fun errOrRaise(silent: Boolean, lazyMessage: () -> Any): TinyUDec {
+        if (!silent)
+            throw IllegalArgumentException(lazyMessage().toString())
+        return ERR
     }
 
     private fun parseStringOrErr(str: String, silent: Boolean): TinyUDec {
-        if (str.isEmpty()) raiseIfNotSilent(silent) { "String is empty" } ?: return ERR
-        if (str[0] == '-') raiseIfNotSilent(silent) { "Only positive numbers are allowed." } ?: return ERR
+        if (str.isEmpty()) return errOrRaise(silent) { "String is empty" }
 
-        val dot = str.indexOf('.')
-
-        if (dot < 0) {
-            if (str.length > MAX_STR_LEN + 1) raiseIfNotSilent(silent) { "String value too long: $str" }  ?: return ERR // may include '+'
-            val int = try {
-                str.toInt()
-            } catch (_: Exception) {
-                raiseIfNotSilent(silent) { "Invalid number format: $str" }
-                return ERR
-            }
-            return if (silent)
-                buildTinyOrErr(int, 0)
-            else
-                buildTiny(int, 0)
+        val start = when (str[0]) {
+            '+' -> 1
+            '-' -> return errOrRaise(silent) { "Only positive numbers are allowed." }
+            else -> 0
         }
-        var end = str.length - 1
-        while (end > dot && str[end] == '0') // skip trailing zeros
-            end--
-
-        val pos = if (end <= dot) 0 else end - dot
-        if (pos > MAX_POS) raiseIfNotSilent(silent) { "Too big precision: $str" } ?: return ERR
-
-        val start = if (str[0] == '+') 1 else 0
 
         var value = 0
         var digitCount = 0
-        for (i in start..end) {
-            if (i == dot) continue
-            val c = str[i]
-            if (c !in '0'..'9') raiseIfNotSilent(silent) { "Invalid character '$c' in: $str" } ?: return ERR
-            value = value * 10 + (c - '0')
-            digitCount++
+        var dot = -1
+        var trailingZeros = 0
+
+        for (i in start until str.length) {
+            when (val c = str[i]) {
+                '.' -> {
+                    if (dot >= 0) return errOrRaise(silent) { "Invalid number format: $str" }
+                    dot = digitCount // position in digit sequence, not in string
+                }
+                in '0'..'9' -> {
+                    if (dot >= 0) {
+                        if (c == '0') {
+                            trailingZeros++
+                        } else if (trailingZeros == 0) {
+                            value = value * 10 + (c - '0')
+                            digitCount++
+                            if (digitCount > MAX_INT_LEN) return errOrRaise(silent) { "String value too long: $str" }
+                        } else { // reset, flush deferred zeros and add current digit
+                            digitCount += trailingZeros + 1
+                            if (digitCount > MAX_INT_LEN) return errOrRaise(silent) { "String value too long: $str" }
+                            value = value * POW[trailingZeros + 1] + (c - '0')
+                            trailingZeros = 0
+                        }
+                    } else {
+                        value = value * 10 + (c - '0')
+                        digitCount++
+                        if (digitCount > MAX_INT_LEN) return errOrRaise(silent) { "String value too long: $str" }
+                    }
+                }
+                else -> return errOrRaise(silent) { "Invalid character '$c' in: $str" }
+            }
         }
 
-        if (digitCount > MAX_INT_LEN) raiseIfNotSilent(silent) { "String value too long: $str" } ?: return ERR
-        return if (silent)
-            buildTinyOrErr(value, pos)
-        else
-            buildTiny(value, pos)
+        val pos = if (dot < 0) 0 else maxOf(digitCount - dot, 0)
+
+        if (pos > MAX_POS)
+            return errOrRaise(silent) { "Too big precision: $str" }
+
+        return if (silent) buildTinyOrErr(value, pos) else buildTiny(value, pos)
     }
 
     fun convertToTinyOrErr(value: Long): TinyUDec {
