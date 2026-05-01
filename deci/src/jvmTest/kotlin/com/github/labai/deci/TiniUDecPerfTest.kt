@@ -23,12 +23,6 @@ import kotlin.time.measureTime
 
 class TiniUDecPerfTest {
 
-    //
-    // (1) tinyTm=975.182915ms bdecTm=935.025606ms
-    // (2) tinyTm=946.954774ms bdecTm=69.093121ms
-    // (3) tinyTm=941.636280ms bdecTm=67.439588ms
-
-    // if remove trimZeros
     // (1) tinyTm=203.261483ms bdecTm=934.884622ms
     // (2) tinyTm=200.038398ms bdecTm=66.536673ms
     // (3) tinyTm=197.199615ms bdecTm=66.730628ms
@@ -125,7 +119,7 @@ class TiniUDecPerfTest {
             val b2 = TinyUDecMath.parseString("12.345")
             var tmp: TinyUDec
             for (i in 1..times) {
-                tmp = TinyUDecMath.addOrErr(b1, b2)
+                tmp = b1.add(b2)
                 n += tmp.tiny
             }
             n
@@ -146,7 +140,7 @@ class TiniUDecPerfTest {
     }
 
 
-    // parse#3 tiny=336ms bdec=454ms
+    // parse#3 tiny=287ms bdec=373ms
     @Disabled
     @Test
     fun test_perf_parseString() {
@@ -156,7 +150,7 @@ class TiniUDecPerfTest {
             var n = 0
             var tmp: TinyUDec
             for (i in 1..times) {
-                val b1 = TinyUDecMath.parseString("12345.7080000")
+                val b1 = TinyUDec.parseString("12345.008000")
                 n += b1.tiny
             }
             n
@@ -165,7 +159,7 @@ class TiniUDecPerfTest {
         val bdecFn = {
             var n = 0
             for (i in 1..times) {
-                val b1 = BigDecimal("12345.7080000")
+                val b1 = BigDecimal("12345.008000")
                 n += b1.scale()
             }
             n

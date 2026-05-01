@@ -102,10 +102,8 @@ internal object TinyUDecMath {
     }
 
     fun trimTrailingZeros(tiny: TinyUDec): TinyUDec {
-        val pos = tiny.tiny ushr 30
-        if (pos == 0)
-            return tiny
-        return makeDec30Compact(tiny.tiny and MASK_VALUE, pos)
+        require(tiny != ERR) { "Invalid tinyDec value (err)" }
+        return makeDec30Compact(tiny.unscaled(), tiny.pos())
     }
 
     // integer part
@@ -123,23 +121,43 @@ internal object TinyUDecMath {
     private fun buildTinyOrErr(value: Int, pos: Int): TinyUDec {
         if (pos !in 0..MAX_POS)
             return ERR
-        if (value !in 0..MAX_VALUE)
-            return ERR
-        return makeDec30Compact(value, pos)
+        if (value !in 1..MAX_VALUE)
+            return if (value == 0) ZERO else ERR
+        return makeDec30(value, pos)
     }
 
     private fun buildTinyOrErr(value: Long, pos: Int): TinyUDec {
         if (pos !in 0..MAX_POS)
             return ERR
-        if (value !in 0..MAX_VALUE)
+        if (value !in 1..MAX_VALUE)
+            return if (value == 0L) ZERO else ERR
+        return makeDec30(value.toInt(), pos)
+    }
+
+    private fun buildTinyCompactOrErr(value: Int, pos: Int): TinyUDec {
+        if (pos !in 0..MAX_POS)
             return ERR
+        if (value !in 1..MAX_VALUE)
+            return if (value == 0) ZERO else ERR
+        return makeDec30Compact(value, pos)
+    }
+
+    private fun buildTinyCompactOrErr(value: Long, pos: Int): TinyUDec {
+        if (pos !in 0..MAX_POS)
+            return ERR
+        if (value !in 1..MAX_VALUE)
+            return if (value == 0L) ZERO else ERR
         return makeDec30Compact(value.toInt(), pos)
     }
 
     fun buildTiny(value: Int, pos: Int): TinyUDec {
         require(pos in 0..MAX_POS) { "Pos must be in 0..$MAX_POS ($pos)" }
-        require(value in 0..MAX_VALUE) { "Value is too large ($value)" }
-        return makeDec30Compact(value, pos)
+        if (value !in 1..MAX_VALUE) {
+            if (value == 0)
+                return ZERO
+            throw IllegalArgumentException("Value is too large ($value)")
+        }
+        return makeDec30(value, pos)
     }
 
     fun toBigDecimal(tiny: TinyUDec): BigDecimal {
@@ -147,7 +165,7 @@ internal object TinyUDecMath {
         return BigDecimal.valueOf(tiny.unscaled().toLong(), tiny.pos())
     }
 
-    internal inline fun parseStringOrErr(str: String): TinyUDec {
+    internal fun parseStringOrErr(str: String): TinyUDec {
         return parseStringOrErr(str, true)
     }
 
@@ -155,7 +173,7 @@ internal object TinyUDecMath {
         return parseStringOrErr(str, false)
     }
 
-    private inline fun errOrRaise(silent: Boolean, lazyMessage: () -> Any): TinyUDec {
+    private fun errOrRaise(silent: Boolean, lazyMessage: () -> Any): TinyUDec {
         if (!silent)
             throw IllegalArgumentException(lazyMessage().toString())
         return ERR
@@ -190,9 +208,10 @@ internal object TinyUDecMath {
                             digitCount++
                             if (digitCount > MAX_INT_LEN) return errOrRaise(silent) { "String value too long: $str" }
                         } else { // reset, flush deferred zeros and add current digit
-                            digitCount += trailingZeros + 1
+                            trailingZeros++
+                            digitCount += trailingZeros
                             if (digitCount > MAX_INT_LEN) return errOrRaise(silent) { "String value too long: $str" }
-                            value = value * POW[trailingZeros + 1] + (c - '0')
+                            value = value * POW[trailingZeros] + (c - '0')
                             trailingZeros = 0
                         }
                     } else {
@@ -399,7 +418,7 @@ internal object TinyUDecMath {
             for (i in POW.indices) {
                 if (POW[i] >= vval) {
                     if (vval == POW[i]) { // exact power of 10
-                        return buildTinyOrErr(uval, u.pos() + i) // if overflowed, it will be handled here
+                        return buildTinyCompactOrErr(uval, u.pos() + i) // if overflowed, it will be handled here
                     }
                     break
                 }
@@ -409,14 +428,14 @@ internal object TinyUDecMath {
             val rpos = u.pos() - vpos
             if (rpos < 0) {
                 val rval = uval.toLong() * POW[-rpos]
-                return buildTinyOrErr(rval, 0)
+                return buildTinyCompactOrErr(rval, 0)
             } else {
-                return buildTinyOrErr(uval, rpos)
+                return buildTinyCompactOrErr(uval, rpos)
             }
         }
 
         if (uval % vval == 0) {
-            return buildTinyOrErr(uval / vval, u.pos() - vpos)
+            return buildTinyCompactOrErr(uval / vval, u.pos() - vpos)
         }
         return ERR
     }

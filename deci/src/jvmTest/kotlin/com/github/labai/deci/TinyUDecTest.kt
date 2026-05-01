@@ -17,6 +17,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import kotlin.test.Test
 import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
 
 class TinyUDecTest {
 
@@ -151,14 +152,14 @@ class TinyUDecTest {
 
     @ParameterizedTest
     @CsvSource(
-        "1.5,  1.5,  3, 0",
-        "0.25, 0.75, 1, 0",
+        "1.5,  1.5,  3, 1",
+        "0.25, 0.75, 1, 2",
         "9999999.9, 9999999.9, 19999999.8, 1"
     )
     fun test_add_trailingZeros(a: String, b: String, expected: String, expectedPos: Int) {
         val expected = dec(expected)
         val result = dec(a).add(dec(b))
-        assertEquals(expected, result)
+        assertDecEquals(expected, result)
         assertEquals(expectedPos, result.pos())
     }
 
@@ -193,19 +194,19 @@ class TinyUDecTest {
         val b = dec(b)
         val expected = dec(expected)
         val res = a.sub(b)
-        assertEquals(expected, res)
+        assertDecEquals(expected, res)
     }
 
     @ParameterizedTest
     @CsvSource(
-        "3.5,  1.5,  2, 0",
-        "1.25, 0.25, 1, 0",
-        "1999999.85, 999999.95, 999999.9, 1"
+        "3.5,  1.5,  2, 1",
+        "1.25, 0.25, 1, 2",
+        "1999999.85, 999999.95, 999999.90, 2"
     )
     fun test_sub_trailingZeros(a: String, b: String, expected: String, expectedPos: Int) {
         val expected = dec(expected)
         val result = dec(a).sub(dec(b))
-        assertEquals(expected, result)
+        assertDecEquals(expected, result)
         assertEquals(expectedPos, result.pos())
     }
 
@@ -434,7 +435,7 @@ class TinyUDecTest {
     fun test_convertToTiny_bigDec(d: String, expected: String) {
         val dec = d.toBigDecimal()
         val result = TinyUDec.valueOf(dec)
-        assertEquals(dec(expected), result)
+        assertDecEquals(dec(expected), result)
     }
 
     @ParameterizedTest
@@ -516,7 +517,7 @@ class TinyUDecTest {
         assertEquals("0.1", tiny1n.toString())
 
         // check error case
-        assertEquals(ERR, ERR.trimTrailingZeros())
+        assertThrows<IllegalArgumentException> { ERR.trimTrailingZeros() }
     }
 
     @ParameterizedTest
@@ -545,5 +546,9 @@ class TinyUDecTest {
         if (s == "ERR")
             return ERR
         return parseString(s)
+    }
+
+    private fun assertDecEquals(dec1: TinyUDec, dec2: TinyUDec) {
+        assertTrue(dec1.isEqual(dec2), "Decimals are not equal ($dec1 vs $dec2)")
     }
 }

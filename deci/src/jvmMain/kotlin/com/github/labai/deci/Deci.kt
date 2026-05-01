@@ -106,7 +106,7 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
                 if (long < 0)
                     setFlagOn(FLAG_NEGATIVE)
             } else {
-                this.decimal = BigDecimal(long)
+                this.decimal = BigDecimal.valueOf(long)
                 setFlagOn(FLAG_TINY_INIT)
             }
         } else if (int != null) {
@@ -158,9 +158,10 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
     /** round to n decimals. Unlike BigDecimal.round(), here parameter 'scale' means scale, not precision */
     actual infix fun round(scale: Int): Deci {
         return if (this.tinyDec != ERR) {
-            Deci(null, tinyDec = tinyDec.round(scale, deciContext.roundingMode))
+            Deci(null, tinyDec = tinyDec.round(scale, deciContext.roundingMode), deciCtx = deciContext)
         } else {
-            Deci(this.asDecimal().setScale(scale, deciContext.javaRoundingMode))
+            val dec = this.asDecimal().setScale(scale, deciContext.javaRoundingMode)
+            Deci(dec, deciContext)
         }
     }
 
@@ -357,7 +358,9 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
         }
     }
 
-    internal fun normalizeTinyDec(): TinyUDec {
+    private fun normalizeTinyDec(): TinyUDec {
+        if (tinyDec == ERR)
+            return ERR
         if (isFlag(FLAG_TINY_TRIM))
             return tinyDec
         val dn = tinyDec.trimTrailingZeros()

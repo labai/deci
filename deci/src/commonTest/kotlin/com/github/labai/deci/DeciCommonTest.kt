@@ -150,7 +150,7 @@ class DeciCommonTest {
         assertEquals(20000000002L.deci, map[Deci("2000000000.2")])
         // should be cached
         val d = 20000000002L.deci
-        assertTrue(d.hashCode() === d.hashCode())
+        assertEquals(d.hashCode(), d.hashCode())
     }
 
 

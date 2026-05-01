@@ -10,7 +10,7 @@ import kotlin.time.measureTime
  */
 class DeciPerfTest {
 
-    // tiny version 385ms, orig 2675ms
+    // tiny version 352ms, orig 2675ms
     @Disabled
     @Test
     fun test_perf_allTiny() {
@@ -40,7 +40,7 @@ class DeciPerfTest {
         }
     }
 
-    // tiny version 381ms, orig 660ms
+    // tiny version 373ms, orig 660ms
     @Disabled
     @Test
     fun test_perf_mixed() {
@@ -52,6 +52,37 @@ class DeciPerfTest {
             for (i in 1..times) {
                 d = (d + "12.25".deci * 12 + "1.200".deci)
                 d += Deci("1.2") * i * perc / 100
+                d += i.deci / 10
+                if (d > 500.deci)
+                    d -= 500
+            }
+            d.toInt()
+        }
+
+        // warmup
+        testFn()
+
+        for (i in 1..3) {
+            val tinyTm = measureTime {
+                n += testFn()
+            }
+            println("$i time=${tinyTm.inWholeMilliseconds}ms")
+        }
+    }
+
+    //  tiny time=988ms, orig time=767ms
+    @Disabled
+    @Test
+    fun test_perf_bigDec() {
+        val times = 1_000_000
+        var n = 1
+        val testFn = {
+            val perc = 30.deci
+            var d = Deci("1")
+            for (i in 1..times) {
+                d = (d + "12.0025".deci * 12 + "1.000200".deci)
+                val dd = Deci("1.0002") * i * perc / 100
+                d += dd
                 d += i.deci / 10
                 if (d > 500.deci)
                     d -= 500
