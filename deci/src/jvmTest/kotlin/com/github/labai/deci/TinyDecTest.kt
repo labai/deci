@@ -1,3 +1,26 @@
+/*
+MIT License
+
+Copyright (c) 2026 Augustus
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
 package com.github.labai.deci
 
 import com.github.labai.deci.RoundingMode.CEILING
@@ -7,10 +30,8 @@ import com.github.labai.deci.RoundingMode.HALF_DOWN
 import com.github.labai.deci.RoundingMode.HALF_EVEN
 import com.github.labai.deci.RoundingMode.HALF_UP
 import com.github.labai.deci.RoundingMode.UP
-import com.github.labai.deci.impl.TinyUDecMath
+import com.github.labai.deci.impl.TinyDec
 import com.github.labai.deci.impl.TinyUDecMath.ERR
-import com.github.labai.deci.impl.TinyUDecMath.TinyUDec
-import com.github.labai.deci.impl.TinyUDecMath.parseString
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
@@ -19,7 +40,7 @@ import kotlin.test.Test
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
-class TinyUDecTest {
+class TinyDecTest {
 
     //
     // parseString, toString
@@ -44,7 +65,7 @@ class TinyUDecTest {
         "+.10,   1,  1",
     )
     fun test_parseString_correct(str: String, expectedUnscaled: Int, expectedPos: Int) {
-        val dec = TinyUDec.parseString(str)
+        val dec = TinyDec.parseString(str)
         assertEquals(expectedUnscaled, dec.unscaled())
         assertEquals(expectedPos, dec.pos())
     }
@@ -61,8 +82,7 @@ class TinyUDecTest {
         "1 1",
     )
     fun test_parseString_invalid(str: String) {
-        val dec = TinyUDecMath.parseStringOrErr(str)
-        assertEquals(ERR, dec)
+        assertThrows<IllegalArgumentException> { TinyDec.parseString(str) }
     }
 
     @Test
@@ -128,7 +148,7 @@ class TinyUDecTest {
         val ba = b.add(a)
         assertEquals(expected, ab)
         assertEquals(expected, ba)
-        assertEquals(ab.tiny, ba.tiny)
+        assertEquals(ab.raw, ba.raw)
         assertNotEquals(ERR, ab)
         assertNotEquals(ERR, ba)
     }
@@ -263,7 +283,7 @@ class TinyUDecTest {
         val ba = b.mul(a)
         assertEquals(expected, ab)
         assertEquals(expected, ba)
-        assertEquals(ab.tiny, ba.tiny)
+        assertEquals(ab.raw, ba.raw)
         assertNotEquals(ERR, ab)
         assertNotEquals(ERR, ba)
     }
@@ -434,7 +454,7 @@ class TinyUDecTest {
     )
     fun test_convertToTiny_bigDec(d: String, expected: String) {
         val dec = d.toBigDecimal()
-        val result = TinyUDec.valueOf(dec)
+        val result = TinyDec.valueOf(dec)
         assertDecEquals(dec(expected), result)
     }
 
@@ -448,11 +468,11 @@ class TinyUDecTest {
     )
     fun test_convertToTiny_long(d: String, expected: String) {
         val long = d.toLong()
-        val res1 = TinyUDec.valueOf(long)
+        val res1 = TinyDec.valueOf(long)
         assertEquals(dec(expected), res1)
 
         val int = d.toInt()
-        val res2 = TinyUDec.valueOf(int)
+        val res2 = TinyDec.valueOf(int)
         assertEquals(dec(expected), res2)
     }
 
@@ -511,7 +531,7 @@ class TinyUDecTest {
     fun test_trimTrailingZeros() {
         // (pos shl 29) or unsigned
         val raw1 = 3 shl 30 or 100
-        val tiny1 = TinyUDec(raw1)
+        val tiny1 = TinyDec(raw1)
         val tiny1n = tiny1.trimTrailingZeros()
         assertEquals("0.100", tiny1.toString())
         assertEquals("0.1", tiny1n.toString())
@@ -542,13 +562,13 @@ class TinyUDecTest {
     // helpers
     //
 
-    private fun dec(s: String): TinyUDec {
+    private fun dec(s: String): TinyDec {
         if (s == "ERR")
             return ERR
-        return parseString(s)
+        return TinyDec.parseString(s)
     }
 
-    private fun assertDecEquals(dec1: TinyUDec, dec2: TinyUDec) {
+    private fun assertDecEquals(dec1: TinyDec, dec2: TinyDec) {
         assertTrue(dec1.isEqual(dec2), "Decimals are not equal ($dec1 vs $dec2)")
     }
 }

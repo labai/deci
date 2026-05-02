@@ -1,3 +1,26 @@
+/*
+MIT License
+
+Copyright (c) 2026 Augustus
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
 package com.github.labai.deci.impl
 
 import com.github.labai.deci.RoundingMode
@@ -31,46 +54,15 @@ import java.math.BigDecimal
  */
 internal object TinyUDecMath {
     const val MASK_VALUE: Int  = 0b00111111111111111111111111111111
-    const val MAX_VALUE = 999_999_999 //
-    const val ERR_VALUE = MAX_VALUE + 2 // 1000000001
+    const val MAX_UNSCALED = 999_999_999 //
+    const val ERR_VALUE = MAX_UNSCALED + 2 // 1000000001
     const val MAX_POS = 3
     const val MAX_STR_LEN = 10 // count dot, but don't count '+'
     const val MAX_INT_LEN = 9  // number of digits
-    val ERR = TinyUDec(ERR_VALUE)
-    val ZERO = TinyUDec(0)
+    val ERR = TinyDec(ERR_VALUE)
+    val ZERO = TinyDec(0)
 
-    @Suppress("NOTHING_TO_INLINE")
-    @JvmInline
-    value class TinyUDec (
-        internal val tiny: Int
-    ) : Comparable<TinyUDec> {
-        inline fun pos() = tiny ushr 30
-        inline fun unscaled() = (tiny and MASK_VALUE)
-        internal inline fun getPow10() = POW[pos()]
-        fun add(other: TinyUDec) = addOrErr(this, other)
-        fun sub(other: TinyUDec) = subOrErr(this, other)
-        fun mul(other: TinyUDec) = mulOrErr(this, other)
-        fun tryDiv(other: TinyUDec) = tryDivOrErr(this, other) // support only few cases w/o rounding
-        fun rem(other: TinyUDec) = remOrErr(this, other)
-        fun round(scale: Int, roundingMode: RoundingMode) = round(this, scale, roundingMode)
-        fun intPart() = getIntPart(this)
-        fun decPart() = getDecPart(this)
-        fun toBigDecimal(): BigDecimal = toBigDecimal(this)
-        override fun compareTo(other: TinyUDec) = compare(this, other)
-        override fun toString(): String = toString(this)
-        fun isEqual(other: TinyUDec): Boolean = isEqual(this, other)
-        internal fun trimTrailingZeros(): TinyUDec = trimTrailingZeros(this)
-        internal fun isZero(): Boolean = unscaled() == 0
-
-        companion object {
-            fun parseString(str: String) = TinyUDecMath.parseString(str)
-            fun valueOf(bigdec: BigDecimal): TinyUDec = convertToTinyOrErr(bigdec)
-            fun valueOf(int: Int): TinyUDec = convertToTinyOrErr(int)
-            fun valueOf(long: Long): TinyUDec = convertToTinyOrErr(long)
-        }
-    }
-
-    private val POW: IntArray = intArrayOf(
+    internal val POW: IntArray = intArrayOf(
         1,                    // 0 / 10^0
         10,                   // 1 / 10^1
         100,                  // 2 / 10^2
@@ -84,12 +76,12 @@ internal object TinyUDecMath {
     )
 
     // no check, for private usage
-    private inline fun makeDec30(unscaled: Int, pos: Int): TinyUDec {
-        return TinyUDec((pos shl 30) or unscaled)
+    private inline fun makeDec30(unscaled: Int, pos: Int): TinyDec {
+        return TinyDec((pos shl 30) or unscaled)
     }
 
     // no check, for private usage
-    private fun makeDec30Compact(unscaled: Int, pos: Int): TinyUDec {
+    private fun makeDec30Compact(unscaled: Int, pos: Int): TinyDec {
         var res = unscaled
         var pos = pos
         while (pos > 0) {
@@ -101,58 +93,58 @@ internal object TinyUDecMath {
         return makeDec30(res, pos)
     }
 
-    fun trimTrailingZeros(tiny: TinyUDec): TinyUDec {
+    fun trimTrailingZeros(tiny: TinyDec): TinyDec {
         require(tiny != ERR) { "Invalid tinyDec value (err)" }
         return makeDec30Compact(tiny.unscaled(), tiny.pos())
     }
 
     // integer part
-    fun getIntPart(tiny: TinyUDec): Int {
+    fun getIntPart(tiny: TinyDec): Int {
         require(tiny != ERR) { "Invalid tinyDec value (err)" }
         return tiny.unscaled() / tiny.getPow10()
     }
 
     // decimals part
-    fun getDecPart(tiny: TinyUDec): Int {
+    fun getDecPart(tiny: TinyDec): Int {
         require(tiny != ERR) { "Invalid tinyDec value (err)" }
         return tiny.unscaled() % tiny.getPow10()
     }
 
-    private fun buildTinyOrErr(value: Int, pos: Int): TinyUDec {
+    fun buildTinyOrErr(value: Int, pos: Int): TinyDec {
         if (pos !in 0..MAX_POS)
             return ERR
-        if (value !in 1..MAX_VALUE)
+        if (value !in 1..MAX_UNSCALED)
             return if (value == 0) ZERO else ERR
         return makeDec30(value, pos)
     }
 
-    private fun buildTinyOrErr(value: Long, pos: Int): TinyUDec {
+    private fun buildTinyOrErr(value: Long, pos: Int): TinyDec {
         if (pos !in 0..MAX_POS)
             return ERR
-        if (value !in 1..MAX_VALUE)
+        if (value !in 1..MAX_UNSCALED)
             return if (value == 0L) ZERO else ERR
         return makeDec30(value.toInt(), pos)
     }
 
-    private fun buildTinyCompactOrErr(value: Int, pos: Int): TinyUDec {
+    private fun buildTinyCompactOrErr(value: Int, pos: Int): TinyDec {
         if (pos !in 0..MAX_POS)
             return ERR
-        if (value !in 1..MAX_VALUE)
+        if (value !in 1..MAX_UNSCALED)
             return if (value == 0) ZERO else ERR
         return makeDec30Compact(value, pos)
     }
 
-    private fun buildTinyCompactOrErr(value: Long, pos: Int): TinyUDec {
+    private fun buildTinyCompactOrErr(value: Long, pos: Int): TinyDec {
         if (pos !in 0..MAX_POS)
             return ERR
-        if (value !in 1..MAX_VALUE)
+        if (value !in 1..MAX_UNSCALED)
             return if (value == 0L) ZERO else ERR
         return makeDec30Compact(value.toInt(), pos)
     }
 
-    fun buildTiny(value: Int, pos: Int): TinyUDec {
+    fun buildTiny(value: Int, pos: Int): TinyDec {
         require(pos in 0..MAX_POS) { "Pos must be in 0..$MAX_POS ($pos)" }
-        if (value !in 1..MAX_VALUE) {
+        if (value !in 1..MAX_UNSCALED) {
             if (value == 0)
                 return ZERO
             throw IllegalArgumentException("Value is too large ($value)")
@@ -160,26 +152,26 @@ internal object TinyUDecMath {
         return makeDec30(value, pos)
     }
 
-    fun toBigDecimal(tiny: TinyUDec): BigDecimal {
+    fun toBigDecimal(tiny: TinyDec): BigDecimal {
         require(tiny != ERR) { "Invalid tinyDec value (err)" }
         return BigDecimal.valueOf(tiny.unscaled().toLong(), tiny.pos())
     }
 
-    internal fun parseStringOrErr(str: String): TinyUDec {
+    internal fun parseStringOrErr(str: String): TinyDec {
         return parseStringOrErr(str, true)
     }
 
-    internal fun parseString(str: String): TinyUDec {
+    internal fun parseString(str: String): TinyDec {
         return parseStringOrErr(str, false)
     }
 
-    private fun errOrRaise(silent: Boolean, lazyMessage: () -> Any): TinyUDec {
+    private fun errOrRaise(silent: Boolean, lazyMessage: () -> Any): TinyDec {
         if (!silent)
             throw IllegalArgumentException(lazyMessage().toString())
         return ERR
     }
 
-    private fun parseStringOrErr(str: String, silent: Boolean): TinyUDec {
+    private fun parseStringOrErr(str: String, silent: Boolean): TinyDec {
         if (str.isEmpty()) return errOrRaise(silent) { "String is empty" }
 
         val start = when (str[0]) {
@@ -232,19 +224,19 @@ internal object TinyUDecMath {
         return if (silent) buildTinyOrErr(value, pos) else buildTiny(value, pos)
     }
 
-    fun convertToTinyOrErr(value: Long): TinyUDec {
-        if (value !in 0..MAX_VALUE)
+    fun convertToTinyOrErr(value: Long): TinyDec {
+        if (value !in 0..MAX_UNSCALED)
             return ERR
         return buildTiny(value.toInt(), 0)
     }
 
-    fun convertToTinyOrErr(value: Int): TinyUDec {
-        if (value !in 0..MAX_VALUE)
+    fun convertToTinyOrErr(value: Int): TinyDec {
+        if (value !in 0..MAX_UNSCALED)
             return ERR
         return buildTiny(value, 0)
     }
 
-    internal fun round(tiny: TinyUDec, scale: Int, roundingMode: RoundingMode): TinyUDec {
+    internal fun round(tiny: TinyDec, scale: Int, roundingMode: RoundingMode): TinyDec {
         if (tiny == ERR)
             return ERR
         val pos = tiny.pos()
@@ -294,7 +286,7 @@ internal object TinyUDecMath {
     // try to convert BigDecimal to tinyDec
     // return ERR if out of limits
     // don't try to trim zeros from dec (?)
-    fun convertToTinyOrErr(dec: BigDecimal): TinyUDec {
+    fun convertToTinyOrErr(dec: BigDecimal): TinyDec {
         when (dec.signum()) {
             -1 -> return ERR
             0 -> return ZERO
@@ -320,7 +312,7 @@ internal object TinyUDecMath {
         return buildTinyOrErr(unscaled, pos)
     }
 
-    fun addOrErr(a: TinyUDec, b: TinyUDec): TinyUDec {
+    fun addOrErr(a: TinyDec, b: TinyDec): TinyDec {
         // no explicit check for ERR - if either is ERR, sum will be > MAX_VALUE
         val apos = a.pos()
         val bpos = b.pos()
@@ -340,12 +332,12 @@ internal object TinyUDecMath {
             rval = aval.toLong() + bval.toLong() * POW[apos - bpos]
         }
 
-        if (rval > MAX_VALUE)
+        if (rval > MAX_UNSCALED)
             return ERR
         return buildTiny(rval.toInt(), rpos)
     }
 
-    fun subOrErr(a: TinyUDec, b: TinyUDec): TinyUDec {
+    fun subOrErr(a: TinyDec, b: TinyDec): TinyDec {
         if (a == ERR || b == ERR)
             return ERR
         val apos = a.pos()
@@ -365,12 +357,12 @@ internal object TinyUDecMath {
             rpos = apos
             rval = aval.toLong() - bval.toLong() * POW[apos - bpos]
         }
-        if (rval !in 0..MAX_VALUE)
+        if (rval !in 0..MAX_UNSCALED)
             return ERR
         return buildTiny(rval.toInt(), rpos)
     }
 
-    fun mulOrErr(a: TinyUDec, b: TinyUDec): TinyUDec {
+    fun mulOrErr(a: TinyDec, b: TinyDec): TinyDec {
         if (a == ERR || b == ERR)
             return ERR
         val apos = a.pos()
@@ -380,13 +372,13 @@ internal object TinyUDecMath {
 
         var rval: Long = aval.toLong() * bval
         var rpos = apos + bpos
-        if (rpos <= MAX_POS && rval <= MAX_VALUE) {
+        if (rpos <= MAX_POS && rval <= MAX_UNSCALED) {
             // all good, fit everywhere
             return buildTiny(rval.toInt(), rpos)
         }
 
         // chance there are trailing zeros
-        while (rpos > MAX_POS || rval > MAX_VALUE) {
+        while (rpos > MAX_POS || rval > MAX_UNSCALED) {
             if (rpos == 0)
                 return ERR
             if (rval % 10 != 0L)
@@ -403,7 +395,7 @@ internal object TinyUDecMath {
     // quick check for few special cases
     // (0, 1, 10^n)
     //
-    fun tryDivOrErr(u: TinyUDec, v: TinyUDec): TinyUDec {
+    fun tryDivOrErr(u: TinyDec, v: TinyDec): TinyDec {
         // assume tiny is normalized (w/o trailing zeros)
         if (u == ERR || v == ERR)
             return ERR
@@ -441,7 +433,7 @@ internal object TinyUDecMath {
     }
 
     // returns a % b
-    fun remOrErr(a: TinyUDec, b: TinyUDec): TinyUDec {
+    fun remOrErr(a: TinyDec, b: TinyDec): TinyDec {
         if (a == ERR || b == ERR)
             return ERR
         val bval = b.unscaled()
@@ -469,7 +461,7 @@ internal object TinyUDecMath {
     }
 
 
-    fun toString(tiny: TinyUDec): String {
+    fun toString(tiny: TinyDec): String {
         if (tiny == ERR)
             return "Err"
         val pos = tiny.pos()
@@ -506,7 +498,7 @@ internal object TinyUDecMath {
         return String(buf, idx, buf.size - idx)
     }
 
-    fun compare(a: TinyUDec, b: TinyUDec): Int {
+    fun compare(a: TinyDec, b: TinyDec): Int {
         if (a == b)
             return 0
         val apos = a.pos()
@@ -524,7 +516,7 @@ internal object TinyUDecMath {
         }
     }
 
-    fun isEqual(a: TinyUDec, b: TinyUDec): Boolean {
+    fun isEqual(a: TinyDec, b: TinyDec): Boolean {
         if (a == b)
             return true
         if (a == ERR || b == ERR)

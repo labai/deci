@@ -1,7 +1,29 @@
+/*
+MIT License
+
+Copyright (c) 2026 Augustus
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
 package com.github.labai.deci
 
-import com.github.labai.deci.impl.TinyUDecMath
-import com.github.labai.deci.impl.TinyUDecMath.TinyUDec
+import com.github.labai.deci.impl.TinyDec
 import org.junit.jupiter.api.Disabled
 import java.math.BigDecimal
 import kotlin.test.Test
@@ -9,13 +31,12 @@ import kotlin.test.assertTrue
 import kotlin.time.measureTime
 
 /*
-    per 10mi in ms
+    per 10mln in ms
                 tiny    bdec
-    create      19.4    19.4
-    create(min) 18.5    1.4     - some jvm optimization?
-    create2     4.0     1.4     - w/o trimming zeros. Also, may be significant loop overhead
-    add         1.3     1.5
-    parse       356     364
+    create(max) 4.1     20.2
+    create(min) 4.0     1.4     - some jvm optimization?
+    add         1.3     1.4
+    parse       287     373
     toString    228     585
     round(min)  3.3     3.6
     round(max)  45      114     - sometimes much slower (due to GC or jit?)
@@ -23,9 +44,9 @@ import kotlin.time.measureTime
 
 class TiniUDecPerfTest {
 
-    // (1) tinyTm=203.261483ms bdecTm=934.884622ms
-    // (2) tinyTm=200.038398ms bdecTm=66.536673ms
-    // (3) tinyTm=197.199615ms bdecTm=66.730628ms
+    // (1) tinyTm=208ms bdecTm=981ms
+    // (2) tinyTm=202ms bdecTm=68ms
+    // (3) tinyTm=206ms bdecTm=68ms
     @Disabled
     @Test
     fun test_perf_create() {
@@ -35,8 +56,8 @@ class TiniUDecPerfTest {
 
         val tinyFn = {
             for (i in 1..timesInt) {
-                val d = TinyUDecMath.buildTiny(i, 3)
-                n += d.tiny
+                val d = TinyDec.buildTinyOrErr(i, 3)
+                n += d.raw
             }
         }
 
@@ -54,31 +75,31 @@ class TiniUDecPerfTest {
         for (i in 1..3) {
             val bdecTm = measureTime { bdecFn() }
             val tinyTm = measureTime { tinyFn() }
-            println("($i) tinyTm=$tinyTm bdecTm=$bdecTm")
+            println("($i) tinyTm=${tinyTm.inWholeMilliseconds}ms bdecTm=${bdecTm.inWholeMilliseconds}ms")
         }
         assertTrue(n > Int.MIN_VALUE)
     }
 
 
 
-    // (3) tinyTm=39.080540ms bdecTm=44.048723ms
+    // (3) tinyTm=52ms bdecTm=57ms
     @Disabled
     @Test
     fun test_perf_add() {
-        val times = 300_000_000
+        val times = 400_000_000
 
         var n = 0
 
-        val tiny1 = TinyUDecMath.parseString("12345.78")
-        val tiny2 = TinyUDecMath.parseString("12.345")
+        val tiny1 = TinyDec.parseString("12345.78")
+        val tiny2 = TinyDec.parseString("12.345")
 
         val tinyFn = {
             val b1 = tiny1
             val b2 = tiny2
-            var tmp: TinyUDec
+            var tmp: TinyDec
             for (i in 1..times) {
-                tmp = TinyUDecMath.addOrErr(b1, b2)
-                n += tmp.tiny
+                tmp = b1.add(b2)
+                n += tmp.raw
             }
         }
 
@@ -102,43 +123,10 @@ class TiniUDecPerfTest {
         for (i in 1..3) {
             val bdecTm = measureTime { bdecFn() }
             val tinyTm = measureTime { tinyFn() }
-            println("($i) tinyTm=$tinyTm bdecTm=$bdecTm")
+            println("($i) tinyTm=${tinyTm.inWholeMilliseconds}ms bdecTm=${bdecTm.inWholeMilliseconds}ms")
         }
         assertTrue(n > 0)
     }
-
-    // add#3 tinyTm=8.378107ms bdecTm=10.145398ms
-    @Disabled
-    @Test
-    fun test_perf_add2() {
-        val times = 500_000_000
-
-        val tinyFn = {
-            var n = 0
-            val b1 = TinyUDecMath.parseString("12345.78")
-            val b2 = TinyUDecMath.parseString("12.345")
-            var tmp: TinyUDec
-            for (i in 1..times) {
-                tmp = b1.add(b2)
-                n += tmp.tiny
-            }
-            n
-        }
-
-        val bdecFn = {
-            var n = 0
-            val b1 = BigDecimal("12345.78")
-            val b2 = BigDecimal("12.345")
-            for (i in 1..times) {
-                n += b1.add(b2)
-                    .scale()
-            }
-            n
-        }
-
-        runCompareTest("add", tinyFn, bdecFn)
-    }
-
 
     // parse#3 tiny=287ms bdec=373ms
     @Disabled
@@ -148,10 +136,10 @@ class TiniUDecPerfTest {
 
         val tinyFn = {
             var n = 0
-            var tmp: TinyUDec
+            var tmp: TinyDec
             for (i in 1..times) {
-                val b1 = TinyUDec.parseString("12345.008000")
-                n += b1.tiny
+                val b1 = TinyDec.parseString("12345.008000")
+                n += b1.raw
             }
             n
         }
@@ -168,7 +156,7 @@ class TiniUDecPerfTest {
         runCompareTest("parse", tinyFn, bdecFn)
     }
 
-    // toString#3 tinyTm=228.333023ms bdecTm=585.179450ms
+    // toString#3 tiny=240ms bdec=583ms
     @Disabled
     @Test
     fun test_perf_toString() {
@@ -177,7 +165,7 @@ class TiniUDecPerfTest {
         val tinyFn = {
             var n = 0
             for (i in 1..times) {
-                val d = TinyUDecMath.buildTiny(12345780, 3)
+                val d = TinyDec.buildTiny(12345780, 3)
                 val s = d.toString()
                 n += s.length
             }
@@ -197,9 +185,9 @@ class TiniUDecPerfTest {
         runCompareTest("toString", tinyFn, bdecFn)
     }
 
-    // round#1 tinyTm=31.797945ms bdecTm=18.106893ms
-    // round#2 tinyTm=226.192564ms bdecTm=20.795356ms
-    // round#3 tinyTm=16.511007ms bdecTm=568.620969ms // GC for BigDecimal(?)
+    // round#1 tiny=27ms bdec=17ms
+    // round#2 tiny=20ms bdec=14ms
+    // round#3 tiny=16ms bdec=585ms // GC for BigDecimal(?)
     @Disabled
     @Test
     fun test_perf_round() {
@@ -207,10 +195,10 @@ class TiniUDecPerfTest {
 
         val tinyFn = {
             var n = 0
-            val d = TinyUDecMath.buildTiny(12345780, 3)
+            val d = TinyDec.buildTiny(12345780, 3)
             for (i in 1..times) {
-                val r = TinyUDecMath.round(d, 1, RoundingMode.HALF_UP)
-                n += r.tiny
+                val r = d.round(1, RoundingMode.HALF_UP)
+                n += r.raw
             }
             n
         }
@@ -226,48 +214,6 @@ class TiniUDecPerfTest {
         }
 
         runCompareTest("round", tinyFn, bdecFn)
-    }
-
-
-
-    // (3) tinyTm=35.755893ms bdecTm=41.447494ms
-    @Disabled
-    @Test
-    fun test_perf_addWithCreation() {
-        val times = 300_000_000
-
-        var n = 0
-
-        val tinyFn = {
-            var tmp: TinyUDec
-            for (i in 1..times) {
-                val b1 = TinyUDecMath.buildTiny(1234578, 2)
-                val b2 = TinyUDecMath.buildTiny(12345, 3)
-                tmp = TinyUDecMath.addOrErr(b1, b2)
-                n += tmp.tiny
-            }
-        }
-
-        val bdecFn = {
-            var tmp = BigDecimal.ZERO
-            for (i in 1..times) {
-                val b1 = BigDecimal.valueOf(12345578L, 2)
-                val b2 = BigDecimal.valueOf(12345, 3)
-                tmp = b1.add(b2)
-                n += tmp.scale()
-            }
-        }
-
-        // warmup
-        tinyFn()
-        bdecFn()
-
-        for (i in 1..3) {
-            val bdecTm = measureTime { bdecFn() }
-            val tinyTm = measureTime { tinyFn() }
-            println("($i) tiny=${tinyTm.inWholeMilliseconds}ms bdec=${bdecTm.inWholeMilliseconds}ms")
-        }
-        assertTrue(n > 0)
     }
 
     // loop should be inside fn
