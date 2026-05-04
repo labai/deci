@@ -181,9 +181,11 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
     }
 
     actual override fun toString(): String {
-        if (tinyDec != ERR)
+        if (tinyDec != ERR) {
             return if (isNegative()) "-${tinyDec}" else tinyDec.toString()
-        return decimal!!.stripTrailingZeros().toPlainString()
+        }
+        return normalizeDecimal()
+            .toPlainString()
     }
 
     actual override fun equals(other: Any?): Boolean {
@@ -203,8 +205,8 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
             val h = tinyDec.hashCode()
             return if (isNegative()) h.inv() else h
         }
-        normalizeDecimal()
-        return decimal!!.hashCode()
+        return normalizeDecimal()
+            .hashCode()
     }
 
     internal fun calcDivScale(divisor: BigDecimal): Int {
@@ -404,6 +406,7 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
     actual companion object {
         internal actual val originalDefaultDeciContext: DeciContext = DeciContextImpl(20, RoundingMode.HALF_UP, 20)
         private val defaultDeciContextValue = (originalDefaultDeciContext as DeciContextImpl).mixed
+        @Volatile
         actual var defaultDeciContext: DeciContext = originalDefaultDeciContext
 
         // few popular numbers

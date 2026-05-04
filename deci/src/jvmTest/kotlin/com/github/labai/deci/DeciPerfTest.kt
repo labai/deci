@@ -15,7 +15,6 @@ class DeciPerfTest {
     @Test
     fun test_perf_allTiny() {
         val times = 1_000_000
-        var n = 1
         val testFn = {
             val perc = 30.deci
             var d = Deci("1")
@@ -28,16 +27,7 @@ class DeciPerfTest {
             }
             d.toInt()
         }
-
-        // warmup
-        testFn()
-
-        for (i in 1..3) {
-            val tinyTm = measureTime {
-                n += testFn()
-            }
-            println("$i time=${tinyTm.inWholeMilliseconds}ms")
-        }
+        runTestFn(testFn)
     }
 
     // tiny version 373ms, orig 660ms
@@ -45,7 +35,6 @@ class DeciPerfTest {
     @Test
     fun test_perf_mixed() {
         val times = 1_000_000
-        var n = 1
         val testFn = {
             val perc = 30.deci
             var d = Deci("1")
@@ -58,16 +47,7 @@ class DeciPerfTest {
             }
             d.toInt()
         }
-
-        // warmup
-        testFn()
-
-        for (i in 1..3) {
-            val tinyTm = measureTime {
-                n += testFn()
-            }
-            println("$i time=${tinyTm.inWholeMilliseconds}ms")
-        }
+        runTestFn(testFn)
     }
 
     //  tiny time=988ms, orig time=767ms
@@ -75,7 +55,6 @@ class DeciPerfTest {
     @Test
     fun test_perf_bigDec() {
         val times = 1_000_000
-        var n = 1
         val testFn = {
             val perc = 30.deci
             var d = Deci("1")
@@ -89,16 +68,7 @@ class DeciPerfTest {
             }
             d.toInt()
         }
-
-        // warmup
-        testFn()
-
-        for (i in 1..3) {
-            val tinyTm = measureTime {
-                n += testFn()
-            }
-            println("$i time=${tinyTm.inWholeMilliseconds}ms")
-        }
+        runTestFn(testFn)
     }
 
     data class TestDto(
@@ -117,5 +87,23 @@ class DeciPerfTest {
             list.add(TestDto(i.deci, (i + 1).deci, (i - 1).deci, (-i).deci))
         }
         println(list.size)
+    }
+
+    //
+    // helpers
+    //
+
+    fun runTestFn(testFn: () -> Int) {
+        var n = 1
+
+        // warmup
+        testFn()
+
+        for (i in 1..3) {
+            val tinyTm = measureTime {
+                n += testFn()
+            }
+            println("$i time=${tinyTm.inWholeMilliseconds}ms")
+        }
     }
 }

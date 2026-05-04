@@ -38,11 +38,10 @@ import kotlin.time.measureTime
     add         1.3     1.4
     parse       287     373
     toString    228     585
-    round(min)  3.3     3.6
-    round(max)  45      114     - sometimes much slower (due to GC or jit?)
+    round       55      278
 */
 
-class TiniUDecPerfTest {
+class TiniDecPerfTest {
 
     // (1) tinyTm=208ms bdecTm=981ms
     // (2) tinyTm=202ms bdecTm=68ms
@@ -185,39 +184,44 @@ class TiniUDecPerfTest {
         runCompareTest("toString", tinyFn, bdecFn)
     }
 
-    // round#1 tiny=27ms bdec=17ms
-    // round#2 tiny=20ms bdec=14ms
-    // round#3 tiny=16ms bdec=585ms // GC for BigDecimal(?)
+    // round#3 tiny=164ms bdec=834ms
     @Disabled
     @Test
     fun test_perf_round() {
-        val times = 50_000_000
+        val times = 10_000_000
 
         val tinyFn = {
             var n = 0
-            val d = TinyDec.buildTiny(12345780, 3)
             for (i in 1..times) {
-                val r = d.round(1, RoundingMode.HALF_UP)
-                n += r.raw
+                val d1 = TinyDec.buildTiny(i, 3)
+                val d2 = d1.round(2, RoundingMode.HALF_UP)
+                val d3 = d2.round(1, RoundingMode.HALF_UP)
+                val d4 = d3.round(0, RoundingMode.HALF_UP)
+                n += d4.raw
             }
-            n
+            n + (Math.random() * 10000).toInt()
         }
 
         val bdecFn = {
             var n = 0
-            val d = BigDecimal.valueOf(12345780, 3)
-            for (i in 1..times) {
-                val r = d.setScale(1, java.math.RoundingMode.HALF_UP)
-                n += r.scale()
+            for (i in 1L..times.toLong()) {
+                val d1 = BigDecimal.valueOf(i, 3)
+                val d2 = d1.setScale(2, java.math.RoundingMode.HALF_UP)
+                val d3 = d2.setScale(1, java.math.RoundingMode.HALF_UP)
+                val d4 = d3.setScale(0, java.math.RoundingMode.HALF_UP)
+                n += d4.scale()
             }
-            n
+            n + (Math.random() * 10000).toInt()
         }
-
         runCompareTest("round", tinyFn, bdecFn)
     }
 
     // loop should be inside fn
     inline fun runCompareTest(name: String, tinyLoopFn: () -> Int, bdecLoopFn: () -> Int) {
+        // warmup
+        tinyLoopFn()
+        bdecLoopFn()
+
         var n = 0
         for (i in 1..3) {
             val bdecTm = measureTime {
