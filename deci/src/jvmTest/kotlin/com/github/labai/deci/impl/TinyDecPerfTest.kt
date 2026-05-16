@@ -21,9 +21,9 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-package com.github.labai.deci
+package com.github.labai.deci.impl
 
-import com.github.labai.deci.impl.TinyDec
+import com.github.labai.deci.RoundingMode
 import org.junit.jupiter.api.Disabled
 import java.math.BigDecimal
 import kotlin.test.Test
@@ -41,7 +41,7 @@ import kotlin.time.measureTime
     round       55      278
 */
 
-class TiniDecPerfTest {
+class TinyDecPerfTest {
 
     // (1) tinyTm=208ms bdecTm=981ms
     // (2) tinyTm=202ms bdecTm=68ms

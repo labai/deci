@@ -21,7 +21,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-package com.github.labai.deci
+package com.github.labai.deci.impl
 
 import com.github.labai.deci.RoundingMode.CEILING
 import com.github.labai.deci.RoundingMode.DOWN
@@ -30,8 +30,7 @@ import com.github.labai.deci.RoundingMode.HALF_DOWN
 import com.github.labai.deci.RoundingMode.HALF_EVEN
 import com.github.labai.deci.RoundingMode.HALF_UP
 import com.github.labai.deci.RoundingMode.UP
-import com.github.labai.deci.impl.TinyDec
-import com.github.labai.deci.impl.TinyUDecMath.ERR
+import com.github.labai.deci.impl.TinyDec.Companion.ERR
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
@@ -411,7 +410,6 @@ class TinyDecTest {
         assertEquals(dec(expect), a.round(pos, HALF_UP))
     }
 
-
     //
     // compare
     //
@@ -495,23 +493,6 @@ class TinyDecTest {
 
     @ParameterizedTest
     @CsvSource(
-        "0.1,         1",
-        "0.020,       2",
-        "500000000,   0",
-        "ERR,         (error)",
-    )
-    fun test_getDecPart(dstr: String, expected: String) {
-        val dec = dec(dstr)
-        if (expected == "(error)") {
-            assertThrows<IllegalArgumentException> { dec.decPart() }
-        } else {
-            val result = dec.decPart()
-            assertEquals(expected.toInt(), result)
-        }
-    }
-
-    @ParameterizedTest
-    @CsvSource(
         "5,    5,   true",
         "0.1,  0.1, true",
         "1.0,  1,   true",
@@ -533,7 +514,6 @@ class TinyDecTest {
         val raw1 = 3 shl 30 or 100
         val tiny1 = TinyDec(raw1)
         val tiny1n = tiny1.trimTrailingZeros()
-        assertEquals("0.100", tiny1.toString())
         assertEquals("0.1", tiny1n.toString())
 
         // check error case
@@ -569,6 +549,7 @@ class TinyDecTest {
     }
 
     private fun assertDecEquals(dec1: TinyDec, dec2: TinyDec) {
-        assertTrue(dec1.isEqual(dec2), "Decimals are not equal ($dec1 vs $dec2)")
+        val comp = TinyUDecMath.compare(dec1.unscaled(), dec1.pos(), dec2.unscaled(), dec2.pos())
+        assertTrue(comp == 0, "Decimals are not equal ($dec1 vs $dec2)")
     }
 }

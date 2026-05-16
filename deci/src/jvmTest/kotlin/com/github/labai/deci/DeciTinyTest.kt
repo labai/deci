@@ -23,10 +23,14 @@ SOFTWARE.
 */
 package com.github.labai.deci
 
+import com.github.labai.deci.impl.TinyDec
+import com.github.labai.deci.impl.TinyUDecMath.ERR_VALUE
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import java.math.BigDecimal
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 /**
  * @author Augustus
@@ -152,4 +156,76 @@ class DeciTinyTest {
     fun test_negative_negate(a: String, expected: String) {
         assertEquals(expected.deci, a.deci.unaryMinus())
     }
+
+    @Test
+    fun test_var_math_tinyDec() {
+        val perc = 30.deci
+        var d = Deci("1")
+        var dd: Deci
+        assertDecEquals("1".deci, d)
+
+        d = (d + "12.25".deci * 12 + "1.200".deci)
+        assertDecEquals("149.2".deci, d)
+
+        dd = Deci("1.2") * 5 * perc / 100
+        d += dd
+        assertDecEquals("1.8".deci, dd)
+        assertDecEquals("151".deci, d)
+
+        dd = (50.deci / 10) % 600
+        d -= dd
+
+        assertDecEquals("5".deci, dd)
+        assertDecEquals("146".deci, d)
+        if (d > 100.deci)
+            d -= 100
+        assertDecEquals("46".deci, d)
+
+        assertNull(d.decimal)
+        assertEquals("46", d.tinyDec.toString())
+    }
+
+    @Test
+    fun test_var_math_tinyDec4d() {
+        val perc = 30.deci
+        var d = Deci("1")
+        var dd: Deci
+        assertDecEquals("1".deci, d)
+        assertNull(d.decimal)
+        assertEquals(1, d.tinyDec.raw)
+
+        d = d + "12.25".deci * 12 + "1.2001".deci
+        assertDecEquals("149.2001".deci, d)
+
+        dd = Deci("1.2") * 5 * perc / 100
+        d += dd
+        assertDecEquals("1.8".deci, dd)
+        assertDecEquals("151.0001".deci, d)
+
+        dd = (50.deci / 10) % 600
+        d -= dd
+
+        assertDecEquals("5".deci, dd)
+        assertDecEquals("146.0001".deci, d)
+        if (d > 100.deci)
+            d -= 100
+
+        assertEquals("46.0001", d.toString())
+
+        dd = d + "0.00000001".deci
+
+        assertEquals(ERR_VALUE, dd.tinyDec.raw)
+        assertEquals("46.00010001", dd.toString())
+    }
+
+    private fun dec(s: String): TinyDec {
+        if (s == "ERR")
+            return TinyDec.ERR
+        return TinyDec.parseString(s)
+    }
+
+    private fun assertDecEquals(dec1: Deci, dec2: Deci) {
+        assertEquals(dec1, dec2, "Decimals are not equal ($dec1 vs $dec2)")
+    }
+
 }

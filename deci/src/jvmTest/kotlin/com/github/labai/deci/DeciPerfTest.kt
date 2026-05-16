@@ -2,18 +2,30 @@ package com.github.labai.deci
 
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
+import java.math.BigDecimal
 import kotlin.time.measureTime
 
 /*
  * @author Augustus
  * created on 2026-04-25
+ *
+ *
+ * Deci
+ *  226 - when only tinyInt as back
+ *  780 - when bigDecimal as back
+ * BigDecimal
+ *  2630 - if to use setScale(20)
+ *  (460 - if don't change scale, but then result is incorrect)
+ *
+ * Memory usage
+ *  51 Mb (with tinyDec) vs 186 Mb (orig Deci)
  */
 class DeciPerfTest {
 
-    // tiny version 352ms, orig 2675ms
+    // 226ms
     @Disabled
     @Test
-    fun test_perf_allTiny() {
+    fun test_perf_1_when_allTiny() {
         val times = 1_000_000
         val testFn = {
             val perc = 30.deci
@@ -30,45 +42,49 @@ class DeciPerfTest {
         runTestFn(testFn)
     }
 
-    // tiny version 373ms, orig 660ms
+    // time=780ms
     @Disabled
     @Test
-    fun test_perf_mixed() {
-        val times = 1_000_000
-        val testFn = {
-            val perc = 30.deci
-            var d = Deci("1")
-            for (i in 1..times) {
-                d = (d + "12.25".deci * 12 + "1.200".deci)
-                d += Deci("1.2") * i * perc / 100
-                d += i.deci / 10
-                if (d > 500.deci)
-                    d -= 500
-            }
-            d.toInt()
-        }
-        runTestFn(testFn)
-    }
-
-    //  tiny time=988ms, orig time=767ms
-    @Disabled
-    @Test
-    fun test_perf_bigDec() {
+    fun test_perf_3_deci_when_bigDec() {
         val times = 1_000_000
         val testFn = {
             val perc = 30.deci
             var d = Deci("1")
             for (i in 1..times) {
                 d = (d + "12.0025".deci * 12 + "1.000200".deci)
-                val dd = Deci("1.0002") * i * perc / 100
+                val dd = "1.0002".deci * i * perc / 100
                 d += dd
-                d += i.deci / 10
+                d += (i.deci / 10) % 600
                 if (d > 500.deci)
                     d -= 500
             }
             d.toInt()
         }
-        runTestFn(testFn)
+        val res = runTestFn(testFn)
+        println(res)
+    }
+
+    // time=2630ms
+    @Disabled
+    @Test
+    fun test_perf_4_bigDec_native() {
+        val times = 1_000_000
+
+        val testFn = {
+            val perc = 30.toBigDecimal()
+            var d = "1".toBigDecimal().setScale(20)
+            for (i in 1..times) {
+                d = (d + "12.0025".toBigDecimal() * 12.toBigDecimal() + "1.000200".toBigDecimal())
+                val dd = "1.0002".toBigDecimal().setScale(20) * i.toBigDecimal() * perc / 100.toBigDecimal()
+                d += dd
+                d += (i.toBigDecimal().setScale(20) / 10.toBigDecimal()) % 600.toBigDecimal()
+                if (d > 500.toBigDecimal())
+                    d -= 500.toBigDecimal()
+            }
+            d.toInt()
+        }
+        val res = runTestFn(testFn)
+        println(res)
     }
 
     data class TestDto(
@@ -78,7 +94,6 @@ class DeciPerfTest {
         val d4: Deci,
     )
 
-    // 69 Mb (with tinyDec) vs 186 Mb (orig Deci)
     @Disabled
     @Test
     fun test_mem_allTiny() {
@@ -89,11 +104,27 @@ class DeciPerfTest {
         println(list.size)
     }
 
+    data class TestDtoBd(
+        val d1: BigDecimal,
+        val d2: BigDecimal,
+        val d3: BigDecimal,
+        val d4: BigDecimal,
+    )
+
+    @Disabled
+    @Test
+    fun test_mem_bigDecimal() {
+        val list = ArrayList<TestDtoBd>(1_000_000)
+        for (i in 1..1_000_000) {
+            list.add(TestDtoBd(i.toBigDecimal(), (i + 1).toBigDecimal(), (i - 1).toBigDecimal(), (-i).toBigDecimal()))
+        }
+        println(list.size)
+    }
     //
     // helpers
     //
 
-    fun runTestFn(testFn: () -> Int) {
+    fun runTestFn(testFn: () -> Int): Int {
         var n = 1
 
         // warmup
@@ -105,5 +136,6 @@ class DeciPerfTest {
             }
             println("$i time=${tinyTm.inWholeMilliseconds}ms")
         }
+        return n
     }
 }

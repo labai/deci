@@ -148,13 +148,13 @@ actual class DeciExpr {
         inline get() = Deci(this, this@DeciExpr.deciContext)
 
     actual val Int.deci: Deci
-        inline get() = Deci(BigDecimal.valueOf(this.toLong()), this@DeciExpr.deciContext)
+        inline get() = Deci(this, this@DeciExpr.deciContext)
 
     actual val Long.deci: Deci
-        inline get() = Deci(BigDecimal.valueOf(this), this@DeciExpr.deciContext)
+        inline get() = Deci(this, this@DeciExpr.deciContext)
 
     actual val String.deci: Deci
-        inline get() = Deci(BigDecimal(this), this@DeciExpr.deciContext)
+        inline get() = Deci(this, this@DeciExpr.deciContext)
 
     private val Deci.deci: Deci
         inline get() = this.applyDeciContext(this@DeciExpr.deciContext)

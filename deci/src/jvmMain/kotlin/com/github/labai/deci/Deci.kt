@@ -23,11 +23,18 @@ SOFTWARE.
 */
 package com.github.labai.deci
 
+import com.github.labai.deci.Deci.Companion
 import com.github.labai.deci.DeciContextImpl.Companion.MASK_11BITS
 import com.github.labai.deci.DeciContextImpl.Companion.MASK_25BITS
 import com.github.labai.deci.DeciContextImpl.Companion.MASK_3BITS
+import com.github.labai.deci.impl.Tiny2iUtils
+import com.github.labai.deci.impl.Tiny2iUtils.TWOINT_ERR
+import com.github.labai.deci.impl.Tiny2iUtils.TwoInt
 import com.github.labai.deci.impl.TinyDec
-import com.github.labai.deci.impl.TinyUDecMath.ERR
+import com.github.labai.deci.impl.TinyDec.Companion.ERR
+import com.github.labai.deci.impl.TinyDec4d
+import com.github.labai.deci.impl.TinyUDecMath
+import com.github.labai.deci.impl.TinyUDecMath.MAX_INT_LEN
 import com.github.labai.deci.impl.TinyUDecMath.MAX_UNSCALED
 import java.math.BigDecimal
 import kotlin.math.absoluteValue
@@ -54,92 +61,127 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
     internal actual val deciContext: DeciContext
         inline get() = this
 
-    private var decimal: BigDecimal? = null
-    private var tinyDec: TinyDec = ERR
-    private var mixed: Int = 0
+    internal var decimal: BigDecimal? = null
+        private set
+    // 'tinyDec' may contain TinyDec (0..3 decimals) or TinyDec4d (4..7 decimals). The flag FLAG_TINY_DEC4 indicates which one is used
+    internal var tinyDec: TinyDec = ERR
+        private set
+    // 'mixed' contains: a) deciContext (25 bits); b) flags
+    internal var mixed: Int = 0
+        private set
 
-    constructor(decimal: BigDecimal, deciContext: DeciContext) : this(decimal, null, false, null, null, null, deciContext)
+    private inline fun getTinyPos() = if (isFlag(FLAG_TINY_DEC4)) tinyDec.pos() + 4 else tinyDec.pos()
+    private inline fun getTinyUnscaled() = tinyDec.unscaled()
 
-    private constructor(
-        decimal: BigDecimal?,
-        tinyDec: TinyDec? = null,
-        tinyNegative: Boolean = false,
-        str: String? = null,
-        long: Long? = null,
-        int: Int? = null,
-        deciCtx: DeciContext? = null,
-    ) : super() {
-        val deciCtx = deciCtx ?: defaultDeciContext
-        this.setDeciContext(deciCtx)
-        if (decimal != null) {
-            this.decimal = applyDeciContext(decimal, deciCtx)
-        } else if (tinyDec != null) {
-            if (tinyDec.pos() <= deciCtx.scale) {
-                this.decimal = null
-                this.tinyDec = tinyDec
-                if (tinyNegative)
-                    setFlagOn(FLAG_NEGATIVE)
-            } else {
-                val bd = if (tinyNegative) tinyDec.toBigDecimal().negate() else tinyDec.toBigDecimal()
-                this.decimal = applyDeciContext(bd, deciCtx)
-                setFlagOn(FLAG_TINY_INIT)
+    // BigDecimal
+    constructor(decimal: BigDecimal, deciContext: DeciContext) {
+        this.setDeciContext(deciContext)
+        this.decimal = applyDeciContext(decimal, deciContext)
+    }
+    constructor(decimal: BigDecimal) : this(decimal, defaultDeciContext)
+
+    // String
+    actual constructor(str: String, deciContext: DeciContext) {
+        this.setDeciContext(deciContext)
+        val isNeg = str.startsWith('-')
+        val absStr = if (isNeg) str.substring(1) else str
+        val pair = Tiny2iUtils.parseString(absStr, MAX_INT_LEN, 0, TinyDec4d.maxPos, true)
+        val pos = pair.second()
+        if (pair != TWOINT_ERR && pos <= deciContext.scale)  {
+            val unscaled = pair.first()
+            this.decimal = null
+            when (pos) {
+                in 0..3 -> {
+                    this.tinyDec = TinyDec.buildTinyOrErr(unscaled, pos)
+                }
+                in 4..7 -> {
+                    val d4d = TinyDec4d.buildTiny4dOrErr(unscaled, pos)
+                    this.tinyDec = TinyDec(d4d.raw)
+                    this.setFlagOn(FLAG_TINY_DEC4)
+                }
+                else -> {
+                    error("Invalid decimal count")
+                }
             }
-        } else if (str != null) {
-            val isNeg = str.startsWith('-')
-            val absStr = if (isNeg) str.substring(1) else str
-            val tiny = TinyDec.parseStringOrErr(absStr)
-            if (tiny != ERR && tiny.pos() <= deciCtx.scale) {
-                this.decimal = null
-                this.tinyDec = tiny
-                if (isNeg)
-                    setFlagOn(FLAG_NEGATIVE)
-                setFlagOn(FLAG_TINY_TRIM)
-            } else {
-                this.decimal = applyDeciContext(BigDecimal(str), deciCtx)
-                setFlagOn(FLAG_TINY_INIT)
-            }
-        } else if (long != null) {
-            val absVal = long.absoluteValue
-            val tiny = if (absVal > MAX_UNSCALED) ERR else TinyDec.buildTinyOrErr(long.absoluteValue.toInt(), 0)
-            if (tiny != ERR) {
-                this.decimal = null
-                this.tinyDec = tiny
-                if (long < 0)
-                    setFlagOn(FLAG_NEGATIVE)
-            } else {
-                this.decimal = BigDecimal.valueOf(long)
-                setFlagOn(FLAG_TINY_INIT)
-            }
-        } else if (int != null) {
-            val tiny = TinyDec.buildTinyOrErr(int.absoluteValue, 0)
-            if (tiny != ERR) {
-                this.decimal = null
-                this.tinyDec = tiny
-                if (int < 0)
-                    setFlagOn(FLAG_NEGATIVE)
-            } else {
-                this.decimal = BigDecimal(int)
-                setFlagOn(FLAG_TINY_INIT)
-            }
+            if (isNeg)
+                setFlagOn(FLAG_NEGATIVE)
+            setFlagOn(FLAG_TINY_TRIM)
         } else {
-            error("Missing constructor parameter")
+            this.decimal = applyDeciContext(BigDecimal(str), deciContext)
+            setFlagOn(FLAG_TINY_INIT)
+        }
+    }
+    actual constructor(str: String) : this(str, defaultDeciContext)
+
+    // Int
+    actual constructor(int: Int, deciContext: DeciContext) {
+        this.setDeciContext(deciContext)
+        val tiny = TinyDec.buildTinyOrErr(int.absoluteValue, 0)
+        if (tiny != ERR) {
+            this.decimal = null
+            this.tinyDec = tiny
+            if (int < 0)
+                setFlagOn(FLAG_NEGATIVE)
+        } else {
+            this.decimal = BigDecimal(int)
+            setFlagOn(FLAG_TINY_INIT)
+        }
+    }
+    actual constructor(int: Int) : this(int, defaultDeciContext)
+
+    // Long
+    actual constructor(long: Long, deciContext: DeciContext) {
+        this.setDeciContext(deciContext)
+        val absVal = long.absoluteValue
+        val tiny = if (absVal > MAX_UNSCALED) ERR else TinyDec.buildTinyOrErr(long.absoluteValue.toInt(), 0)
+        if (tiny != ERR) {
+            this.decimal = null
+            this.tinyDec = tiny
+            if (long < 0)
+                setFlagOn(FLAG_NEGATIVE)
+        } else {
+            this.decimal = BigDecimal.valueOf(long)
+            setFlagOn(FLAG_TINY_INIT)
+        }
+    }
+    actual constructor(long: Long) : this(long, defaultDeciContext)
+
+    // TinyDec
+    private constructor(tinyDec: TinyDec, tinyNegative: Boolean, deciContext: DeciContext) {
+        this.setDeciContext(deciContext)
+        if (tinyDec.pos() <= deciContext.scale) {
+            this.decimal = null
+            this.tinyDec = tinyDec
+            if (tinyNegative)
+                setFlagOn(FLAG_NEGATIVE)
+        } else {
+            val bd = if (tinyNegative) tinyDec.toBigDecimal().negate() else tinyDec.toBigDecimal()
+            this.decimal = applyDeciContext(bd, deciContext)
+            setFlagOn(FLAG_TINY_INIT)
         }
     }
 
-    constructor(decimal: BigDecimal) : this(decimal, defaultDeciContext)
-
-    actual constructor(str: String, deciContext: DeciContext) : this(decimal = null, str = str, deciCtx = deciContext)
-    actual constructor(str: String) : this(decimal = null, str = str)
-    actual constructor(int: Int, deciContext: DeciContext) : this(decimal = null, int = int, deciCtx = deciContext)
-    actual constructor(int: Int) : this(decimal = null, int = int)
-    actual constructor(long: Long, deciContext: DeciContext) : this(decimal = null, long = long, deciCtx = deciContext)
-    actual constructor(long: Long) : this(decimal = null, long = long)
+    // TinyDec4
+    private constructor(tiny4: TinyDec4d, tinyNegative: Boolean, deciContext: DeciContext, markForTiny4Arg: Boolean) {
+        this.setDeciContext(deciContext)
+        if (tiny4.pos() <= deciContext.scale) {
+            this.decimal = null
+            this.tinyDec = TinyDec(tiny4.raw)
+            setFlagOn(FLAG_TINY_DEC4)
+            if (tinyNegative)
+                setFlagOn(FLAG_NEGATIVE)
+        } else {
+            val bd = if (tinyNegative) tiny4.toBigDecimal().negate() else tiny4.toBigDecimal()
+            this.decimal = applyDeciContext(bd, deciContext)
+            setFlagOn(FLAG_TINY_INIT)
+        }
+    }
 
     actual operator fun unaryMinus(): Deci {
-        if (tinyDec != ERR) {
+        if (tinyDec.isValid()) {
             if (tinyDec.isZero())
                 return this
-            return Deci(null, tinyDec = tinyDec, tinyNegative = !isNegative(), deciCtx = deciContext)
+            return Deci(tinyDec, !isNegative(), deciContext)
         }
         return Deci(decimal!!.negate(), deciContext)
     }
@@ -153,36 +195,63 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
     actual override fun toShort(): Short = decimal?.toShort() ?: (if (isNegative()) -tinyDec.intPart() else tinyDec.intPart()).toShort()
 
     actual fun applyDeciContext(deciContext: DeciContext): Deci {
-        return if (this.deciContext == deciContext) this else Deci(this.decimal, this.tinyDec, deciCtx = deciContext)
+        return if (this.deciContext == deciContext) this else Deci(asDecimal(), deciContext = deciContext)
     }
 
     /** round to n decimals. Unlike BigDecimal.round(), here parameter 'scale' means scale, not precision */
     actual infix fun round(scale: Int): Deci {
-        return if (this.tinyDec != ERR) {
-            Deci(null, tinyDec = tinyDec.round(scale, deciContext.roundingMode), deciCtx = deciContext)
-        } else {
-            val dec = this.asDecimal().setScale(scale, deciContext.javaRoundingMode)
-            Deci(dec, deciContext)
+        if (this.tinyDec.isValid()) {
+            val isDec4 = isFlag(FLAG_TINY_DEC4)
+            val isNeg = isFlag(FLAG_NEGATIVE)
+            if (!isDec4 && scale in 0..3) {
+                if (scale >= tinyDec.pos())
+                    return this
+                return Deci(tinyDec.round(scale, deciContext.roundingMode), isNeg, deciContext)
+            }
+            if (isDec4) {
+                val tiny4Pos = getTinyPos()
+                if (scale >= tiny4Pos)
+                    return this
+                val pair = Tiny2iUtils.round(getTinyUnscaled(), tiny4Pos, scale, deciContext.roundingMode)
+                val res = createFromTwoInt(pair, isNeg)
+                if (res != null)
+                    return res
+            }
         }
+        val bdec = this.asDecimal()
+        if (bdec.scale() <= scale)
+            return this
+        val dec = bdec.setScale(scale, deciContext.javaRoundingMode)
+        return Deci(dec, deciContext)
     }
 
     actual override fun compareTo(other: Deci): Int {
-        if (tinyDec != ERR && other.tinyDec != ERR) {
+        if (tinyDec.isValid() && other.tinyDec.isValid()) {
             val aneg = isNegative()
             val bneg = other.isNegative()
+            when {
+                aneg && !bneg -> return -1
+                !aneg && bneg -> return 1
+            }
+
+            val aval = getTinyUnscaled()
+            val apos = getTinyPos()
+            val bval = other.getTinyUnscaled()
+            val bpos = other.getTinyPos()
+
             return when {
-                aneg && !bneg -> -1
-                !aneg && bneg -> 1
-                aneg -> other.tinyDec.compareTo(tinyDec) // both negative: reverse magnitude order
-                else -> tinyDec.compareTo(other.tinyDec)
+                aneg -> TinyUDecMath.compare(bval, bpos, aval, apos) // both negative: reverse magnitude order
+                else -> TinyUDecMath.compare(aval, apos, bval, bpos)
             }
         }
         return toBigDec().compareTo(other.toBigDec())
     }
 
     actual override fun toString(): String {
-        if (tinyDec != ERR) {
-            return if (isNegative()) "-${tinyDec}" else tinyDec.toString()
+        if (tinyDec.isValid()) {
+            val unscaled = getTinyUnscaled()
+            val pos = getTinyPos()
+            return if (isNegative()) "-${TinyUDecMath.toString(unscaled, pos)}" else TinyUDecMath.toString(unscaled, pos)
         }
         return normalizeDecimal()
             .toPlainString()
@@ -192,16 +261,12 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
         other as Deci
-        if (tinyDec != ERR && other.tinyDec != ERR) {
-            if (isNegative() != other.isNegative()) return false
-            return tinyDec.isEqual(other.tinyDec)
-        }
         return compareTo(other) == 0
     }
 
     actual override fun hashCode(): Int {
         tryInitTinyDec()
-        if (tinyDec != ERR) {
+        if (tinyDec.isValid()) {
             val h = tinyDec.hashCode()
             return if (isNegative()) h.inv() else h
         }
@@ -231,7 +296,7 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
     }
 
     internal fun plusInternal(other: Deci): Deci {
-        if (tinyDec != ERR && other.tinyDec != ERR) {
+        if (tinyDec.isValid() && other.tinyDec.isValid()) {
             val r = addTinySigned(other)
             if (r != null)
                 return r
@@ -240,7 +305,7 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
     }
 
     internal fun minusInternal(other: Deci): Deci {
-        if (tinyDec != ERR && other.tinyDec != ERR) {
+        if (tinyDec.isValid() && other.tinyDec.isValid()) {
             // subtract = add with sign of other flipped
             val r = addTinySigned(other, negateOther = true)
             if (r != null)
@@ -250,7 +315,7 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
     }
 
     internal fun timesInternal(other: Deci): Deci {
-        if (tinyDec != ERR && other.tinyDec != ERR) {
+        if (isValidTiny0() && other.isValidTiny0()) {
             val r = mulDivTinySigned(other) { a, b -> a.mul(b) }
             if (r != null)
                 return r
@@ -259,7 +324,7 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
     }
 
     internal fun divInternal(other: Deci): Deci {
-        if (tinyDec != ERR && other.tinyDec != ERR) {
+        if (isValidTiny0() && other.isValidTiny0()) {
             val r = mulDivTinySigned(other) { a, b -> a.tryDiv(b) }
             if (r != null)
                 return r
@@ -271,7 +336,7 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
     }
 
     internal fun remInternal(other: Deci): Deci {
-        if (tinyDec != ERR && other.tinyDec != ERR) {
+        if (isValidTiny0() && other.isValidTiny0()) {
             val r = remTinySigned(other)
             if (r != null)
                 return r
@@ -279,51 +344,77 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
         return Deci(this.toBigDec().rem(other.toBigDec()), deciContext)
     }
 
+    private inline fun isValidTiny0(): Boolean {
+        return tinyDec.isValid() && !isFlag(FLAG_TINY_DEC4)
+    }
+
+    private fun createFromTwoInt(pair: TwoInt, neg: Boolean) : Deci? {
+        if (pair == TWOINT_ERR)
+            return null
+        return createFromUnscaledPos(pair.first(), pair.second(), neg)
+    }
+
+    private fun createFromUnscaledPos(unscaled: Int, pos: Int, neg: Boolean) : Deci? {
+        val rtiny = TinyDec.buildTinyOrErr(unscaled, pos)
+        if (rtiny.isValid())
+            return Deci(rtiny, neg, deciContext)
+        val rtiny4 = TinyDec4d.buildTiny4dOrErr(unscaled, pos)
+        if (rtiny4.isValid())
+            return Deci(rtiny4, neg, deciContext, true)
+        return null
+    }
+
     // Signed addition of two tinyDec values, optionally negating the other operand (for subtraction).
     // Returns null if the result overflows TinyUDec range — caller falls back to BigDecimal.
     private fun addTinySigned(other: Deci, negateOther: Boolean = false): Deci? {
         val aneg = isNegative()
+        val aval = this.getTinyUnscaled()
+        val apos = this.getTinyPos()
         val bneg = other.isNegative() xor negateOther
+        val bval = other.getTinyUnscaled()
+        val bpos = other.getTinyPos()
         if (aneg == bneg) {
             // same sign: magnitudes add, sign is preserved
-            val r = this.tinyDec.add(other.tinyDec)
-            if (r == ERR) return null
-            return Deci(null, tinyDec = r, tinyNegative = aneg, deciCtx = deciContext)
+            val pair = Tiny2iUtils.addOrErr(aval, apos, bval, bpos)
+            return createFromTwoInt(pair, aneg)
         }
         // different signs: subtract smaller magnitude from larger, sign follows the larger
-        if (this.tinyDec > other.tinyDec) {
-            val r = this.tinyDec.sub(other.tinyDec)
-            if (r == ERR) return null
-            return Deci(null, tinyDec = r, tinyNegative = aneg, deciCtx = deciContext)
+        val comp = TinyUDecMath.compare(aval, apos, bval, bpos)
+        if (comp > 0) {
+            val pair = Tiny2iUtils.subOrErr(aval, apos, bval, bpos)
+            return createFromTwoInt(pair, aneg)
         }
-        val r = other.tinyDec.sub(this.tinyDec)
-        if (r == ERR) return null
-        return Deci(null, tinyDec = r, tinyNegative = bneg, deciCtx = deciContext)
+        val pair = Tiny2iUtils.subOrErr(bval, bpos, aval, apos)
+        return createFromTwoInt(pair, bneg)
     }
 
     // Signed multiplication/division of two tinyDec values.
     // Returns null if the result overflows TinyUDec range — caller falls back to BigDecimal.
     private inline fun mulDivTinySigned(other: Deci, mulDivFn: (TinyDec, TinyDec) -> TinyDec): Deci? {
         val r = mulDivFn(this.tinyDec, other.tinyDec)
-        if (r == ERR) return null
+        if (r.isErr()) return null
         val resultNeg = (isNegative() xor other.isNegative()) && !r.isZero()
-        return Deci(null, tinyDec = r, tinyNegative = resultNeg, deciCtx = deciContext)
+        return Deci(r, resultNeg, deciContext)
     }
 
     // Signed remainder of two tinyDec values.
     // Returns null if the result overflows TinyUDec range — caller falls back to BigDecimal.
     private fun remTinySigned(other: Deci): Deci? {
         val r = this.tinyDec.rem(other.tinyDec)
-        if (r == ERR) return null
+        if (r.isErr()) return null
         val resultNeg = isNegative() && !r.isZero() // take form 1st operand
-        return Deci(null, tinyDec = r, tinyNegative = resultNeg, deciCtx = deciContext)
+        return Deci(r, resultNeg, deciContext)
     }
 
     internal fun toBigDec(): BigDecimal {
         if (decimal != null)
             return decimal!!
-        val tiny = normalizeTinyDec()
-        val d = tiny.toBigDecimal().let { if (isNegative()) it.negate() else it }
+        normalizeTinyDec()
+        val d = if (isFlag(FLAG_TINY_DEC4)) {
+            tinyDec.asTinyDec4d().toBigDecimal()
+        } else {
+            tinyDec.toBigDecimal()
+        }.let { if (isNegative()) it.negate() else it }
         setFlagOn(FLAG_BIGD_TRIM)
         decimal = d
         return d
@@ -335,7 +426,7 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
         val dec = if (decimal != null) {
             decimal!!
         } else {
-            check(tinyDec != ERR) { "Deci is invalid" }
+            check(tinyDec.isValid()) { "Deci is invalid" }
             tinyDec.toBigDecimal()
         }
         val decn = dec.stripTrailingZeros()
@@ -344,8 +435,24 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
         return decn
     }
 
-    private inline fun asDecimal(): BigDecimal {
-        return decimal ?: tinyDec.toBigDecimal().let { if (isNegative()) it.negate() else it }
+    private fun asDecimal(): BigDecimal {
+        return when {
+            decimal != null ->
+                decimal!!
+            isFlag(FLAG_TINY_DEC4) ->
+                tinyDec.asTinyDec4d().toBigDecimal()
+            else ->
+                tinyDec.toBigDecimal()
+        }.let { if (isNegative()) it.negate() else it }
+    }
+
+    // both TinyDec and TinyDec4d are value objects for Int, i.e. after compile both are primitive int
+    private inline fun TinyDec4d.asTinyDec(): TinyDec {
+        return TinyDec(this.raw)
+    }
+
+    private inline fun TinyDec.asTinyDec4d(): TinyDec4d {
+        return TinyDec4d(this.raw)
     }
 
     // sometimes we want to have tinyDec even we already have decimal.
@@ -354,6 +461,10 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
         if (!isFlag(FLAG_TINY_INIT)) {
             val dec = normalizeDecimal()
             tinyDec = TinyDec.valueOf(dec)
+            if (tinyDec.isErr()) {
+                tinyDec = TinyDec4d.valueOf(dec).asTinyDec()
+                setFlagOn(FLAG_TINY_DEC4)
+            }
             setFlagOn(FLAG_TINY_TRIM)
             setFlagOn(FLAG_TINY_INIT)
         } else {
@@ -361,15 +472,20 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
         }
     }
 
-    private fun normalizeTinyDec(): TinyDec {
-        if (tinyDec == ERR)
-            return ERR
+    private fun normalizeTinyDec() {
+        if (tinyDec.isErr())
+            return
         if (isFlag(FLAG_TINY_TRIM))
-            return tinyDec
-        val dn = tinyDec.trimTrailingZeros()
-        this.tinyDec = dn
+            return
+
+        if (isFlag(FLAG_TINY_DEC4)) {
+            val dn = tinyDec.asTinyDec4d().trimTrailingZeros()
+            this.tinyDec = dn.asTinyDec()
+        } else {
+            this.tinyDec = tinyDec.trimTrailingZeros()
+        }
         setFlagOn(FLAG_TINY_TRIM)
-        return dn
+        return
     }
 
     // ----------------------------------------------------------------
@@ -421,6 +537,7 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
         private const val FLAG_TINY_TRIM: Int = 1 shl 27
         private const val FLAG_BIGD_TRIM: Int = 1 shl 28
         private const val FLAG_NEGATIVE: Int = 1 shl 29
+        private const val FLAG_TINY_DEC4: Int = 1 shl 30 // tinyDec is TinyDec4d, not TinyDec
 
         actual fun valueOf(int: Int): Deci {
             return when (int) {
@@ -495,7 +612,7 @@ infix fun BigDecimal.eq(other: Deci) = this.compareTo(other.toBigDec()) == 0
 //
 // additional Deci methods
 //
-actual fun Deci.Companion.valueOf(num: Number): Deci {
+actual fun Companion.valueOf(num: Number): Deci {
     return when (num) {
         is Deci -> num
         is BigDecimal -> Deci(num)
@@ -509,9 +626,9 @@ actual fun Deci.Companion.valueOf(num: Number): Deci {
     }
 }
 
-actual fun Deci.Companion.valueOf(str: String): Deci = Deci(str)
+actual fun Companion.valueOf(str: String): Deci = Deci(str)
 
-actual fun Deci.Companion.valueOf(num: Number, deciContext: DeciContext): Deci {
+actual fun Companion.valueOf(num: Number, deciContext: DeciContext): Deci {
     return when (num) {
         is Deci -> if (deciContext == num.deciContext) num else Deci(num.toBigDec(), deciContext)
         is BigDecimal -> Deci(num, deciContext)
@@ -525,7 +642,7 @@ actual fun Deci.Companion.valueOf(num: Number, deciContext: DeciContext): Deci {
     }
 }
 
-actual fun Deci.Companion.valueOf(str: String, deciContext: DeciContext): Deci = Deci(str, deciContext)
+actual fun Companion.valueOf(str: String, deciContext: DeciContext): Deci = Deci(str, deciContext)
 
 actual operator fun Deci.compareTo(other: Number): Int {
     return when (other) {
