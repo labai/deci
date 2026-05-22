@@ -374,10 +374,10 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
     }
 
     internal fun createFromUnscaledPos(unscaled: Int, pos: Int, neg: Boolean) : Deci? {
+        if (unscaled == 0)
+            return ZERO
         val rtiny = TinyDec.buildTinyOrErr(unscaled, pos)
         if (rtiny.isValid()) {
-            if (rtiny.isZero())
-                return ZERO
             return Deci(rtiny, neg, deciContext)
         }
         val rtiny4 = TinyDec4d.buildTiny4dOrErr(unscaled, pos)
