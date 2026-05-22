@@ -28,6 +28,7 @@ import java.io.ByteArrayOutputStream
 import java.io.NotSerializableException
 import java.io.ObjectOutputStream
 import java.math.BigDecimal
+import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -81,6 +82,8 @@ class DeciTest {
     @Test
     fun jvm_valueOf() {
         assertEquals(2.deci, Deci.valueOf(2.toBigDecimal()))
+
+        assertEquals(2.deci, Deci.valueOf(2.toBigInteger()))
 
         // floats are not precise
         assertFalse("2.2".deci eq Deci.valueOf(2.2.toFloat()))

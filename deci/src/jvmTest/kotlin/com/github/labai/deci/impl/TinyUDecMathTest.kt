@@ -23,15 +23,14 @@ SOFTWARE.
 */
 package com.github.labai.deci.impl
 
-import com.github.labai.deci.impl.Tiny2iUtils.TWOINT_ERR
 import com.github.labai.deci.impl.TinyDec.Companion.ERR
+import com.github.labai.deci.impl.TinyUDecMath.TWOINT_ERR
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import kotlin.test.assertTrue
 
-class Tiny2iUtilsTest {
-
+class TinyUDecMathTest {
 
     @ParameterizedTest
     @CsvSource(
@@ -53,19 +52,19 @@ class Tiny2iUtilsTest {
     fun test_add_scaled(a: String, b: String, expUnscaled: Int, expPos: Int) {
         val a1: TinyDec = TinyDec.parseString(a)
         val b1: TinyDec4d = TinyDec4d.parseString(b)
-        val res1 = Tiny2iUtils.addOrErr(a1.unscaled(), a1.pos(), b1.unscaled(), b1.pos())
+        val res1 = TinyUDecMath.addOrErr(a1.unscaled(), a1.pos(), b1.unscaled(), b1.pos())
         assertEquals(expUnscaled, res1.first())
         assertEquals(expPos, res1.second())
 
         val a2: TinyDec4d = TinyDec4d.parseString(a)
         val b2: TinyDec = TinyDec.parseString(b)
-        val res2 = Tiny2iUtils.addOrErr(a2.unscaled(), a2.pos(), b2.unscaled(), b2.pos())
+        val res2 = TinyUDecMath.addOrErr(a2.unscaled(), a2.pos(), b2.unscaled(), b2.pos())
         assertEquals(expUnscaled, res2.first())
         assertEquals(expPos, res2.second())
 
         val a3: TinyDec4d = TinyDec4d.parseString(a)
         val b3: TinyDec4d = TinyDec4d.parseString(b)
-        val res3 = Tiny2iUtils.addOrErr(a3.unscaled(), a3.pos(), b3.unscaled(), b3.pos())
+        val res3 = TinyUDecMath.addOrErr(a3.unscaled(), a3.pos(), b3.unscaled(), b3.pos())
         assertEquals(expUnscaled, res3.first())
         assertEquals(expPos, res3.second())
 
@@ -83,10 +82,10 @@ class Tiny2iUtilsTest {
     fun test_addsub_invalid(a: String, b: String) {
         val a1: TinyDec = if (a == "ERR") ERR else TinyDec.parseString(a)
         val b1: TinyDec4d = if (b == "ERR") TinyDec4d.ERR else TinyDec4d.parseString(b)
-        val res1 = Tiny2iUtils.addOrErr(a1.unscaled(), a1.pos(), b1.unscaled(), b1.pos())
+        val res1 = TinyUDecMath.addOrErr(a1.unscaled(), a1.pos(), b1.unscaled(), b1.pos())
         assertEquals(TWOINT_ERR, res1)
 
-        val res2 = Tiny2iUtils.subOrErr(a1.unscaled(), a1.pos(), b1.unscaled(), b1.pos())
+        val res2 = TinyUDecMath.subOrErr(a1.unscaled(), a1.pos(), b1.unscaled(), b1.pos())
         assertEquals(TWOINT_ERR, res2)
     }
 
@@ -109,21 +108,41 @@ class Tiny2iUtilsTest {
     fun test_sub_tiny4(a: String, b: String, expUnscaled: Int, expPos: Int) {
         val a1: TinyDec = TinyDec.parseString(a)
         val b1: TinyDec4d = TinyDec4d.parseString(b)
-        val res1 = Tiny2iUtils.subOrErr(a1.unscaled(), a1.pos(), b1.unscaled(), b1.pos())
+        val res1 = TinyUDecMath.subOrErr(a1.unscaled(), a1.pos(), b1.unscaled(), b1.pos())
         assertEquals(expUnscaled, res1.first())
         assertEquals(expPos, res1.second())
 
         val a2: TinyDec4d = TinyDec4d.parseString(a)
         val b2: TinyDec = TinyDec.parseString(b)
-        val res2 = Tiny2iUtils.subOrErr(a2.unscaled(), a2.pos(), b2.unscaled(), b2.pos())
+        val res2 = TinyUDecMath.subOrErr(a2.unscaled(), a2.pos(), b2.unscaled(), b2.pos())
         assertEquals(expUnscaled, res2.first())
         assertEquals(expPos, res2.second())
 
         val a3: TinyDec4d = TinyDec4d.parseString(a)
         val b3: TinyDec4d = TinyDec4d.parseString(b)
-        val res3 = Tiny2iUtils.subOrErr(a3.unscaled(), a3.pos(), b3.unscaled(), b3.pos())
+        val res3 = TinyUDecMath.subOrErr(a3.unscaled(), a3.pos(), b3.unscaled(), b3.pos())
         assertEquals(expUnscaled, res3.first())
         assertEquals(expPos, res3.second())
+    }
+
+
+    @ParameterizedTest
+    @CsvSource(
+        "1.00100, 1001, 3",
+        "1.00001, 100001, 5",
+        "1.0000001, 10000001, 7",
+        "0.00000010, 1, 7",
+        "1.10, 11, 1",
+        "0.00, 0, 0",
+        "0.01, 1, 2",
+        "100000000, 100000000, 0",
+        "10000000.0, 10000000, 0",
+        "10000000.1, 100000001, 1",
+    )
+    fun test_parseString(str: String, expUnscaled: Int, expPos: Int) {
+        val pair = TinyUDecMath.parseString(str, 9, 0, 7, false)
+        assertEquals(expUnscaled, pair.first())
+        assertEquals(expPos, pair.second())
     }
 
     //

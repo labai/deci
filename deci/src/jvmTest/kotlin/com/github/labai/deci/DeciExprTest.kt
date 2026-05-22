@@ -24,6 +24,7 @@ SOFTWARE.
 package com.github.labai.deci
 
 import com.github.labai.deci.RoundingMode.HALF_UP
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
 import kotlin.test.assertEquals
@@ -244,6 +245,32 @@ class DeciExprTest {
         // 1.012345 x 1.0123465789 = 1.0248439974165205 (js)
         // i.e. here we use shorter scale, if it is defined in deciContext
         assertEquals("1.02479844182047", dec.toString())
+    }
+
+    private class TestDeciContext(
+        override val scale: Int,
+        override val roundingMode: RoundingMode,
+        override val precision: Int,
+    ) : DeciContext
+
+
+    @Test
+    fun jvm_deciContext_isEqual() {
+        val ctx1 = DeciContext.of(scale = 4, roundingMode = HALF_UP, precision = 3)
+        val ctx2 = TestDeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+        val ctx3 = Deci.valueOf(1, ctx1)
+        val ctx4 = Deci.valueOf(1, ctx2)
+        val all = listOf(ctx1, ctx2, ctx3, ctx4)
+        for (c1 in all) {
+            for (c2 in all) {
+                assertTrue(c1.isDeciCtxEqual(c2))
+            }
+        }
+
+        val ctx5 = DeciContext.of(scale = 4, roundingMode = HALF_UP, precision = 4)
+        for (c1 in all) {
+            assertFalse(c1.isDeciCtxEqual(ctx5))
+        }
     }
 
     private data class OpTestRes(

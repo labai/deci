@@ -99,6 +99,13 @@ class DeciCommonTest {
     }
 
     @Test
+    fun common_negate() {
+        assertDecEquals((-10).deci, -(10.deci))
+        assertDecEquals(10.deci, -((-10).deci))
+        assertDecEquals(0.deci, -(0.deci))
+    }
+
+    @Test
     fun common_valueOf_withContext() {
         val ctx4 = DeciContext.of(scale = 4, roundingMode = HALF_UP, precision = 3)
 

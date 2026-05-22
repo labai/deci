@@ -23,6 +23,7 @@ SOFTWARE.
 */
 package com.github.labai.deci
 
+import com.github.labai.deci.DeciContextImpl.Companion.MASK_25BITS
 import java.io.Serializable
 import java.math.RoundingMode as JavaRoundingMode
 
@@ -74,9 +75,9 @@ internal class DeciContextImpl : DeciContext {
 
     companion object {
         internal const val MASK_3BITS = 0b111
-        internal const val MASK_11BITS = 0b11111111111
-        internal const val MASK_25BITS = 0b00000001111111111111111111111111
-        internal const val MASK_25BITS_INV = 0b1111110000000000000000000000000
+        internal const val MASK_11BITS = 0b111_11111111
+        internal const val MASK_25BITS = 0b00000001_11111111_11111111_11111111
+        internal const val MASK_25BITS_INV = 0b01111110_00000000_00000000_00000000
 
         // convert to 25 bits
         internal fun convDeciCtxValue(ctx: DeciContext): Int {
@@ -101,4 +102,34 @@ internal fun RoundingMode.toJava(): JavaRoundingMode = when (this) {
     RoundingMode.HALF_DOWN -> JavaRoundingMode.HALF_DOWN
     RoundingMode.CEILING -> JavaRoundingMode.CEILING
     RoundingMode.FLOOR -> JavaRoundingMode.FLOOR
+}
+
+internal fun DeciContext.isDeciCtxEqual(other: DeciContext): Boolean {
+    if (this === other)
+        return true
+
+    val mixed1 = when (this) {
+        is DeciContextImpl -> this.mixed
+        is Deci -> this.mixed
+        else -> 0
+    }
+
+    if (mixed1 != 0) {
+        val mixed2 = when (other) {
+            is DeciContextImpl -> other.mixed
+            is Deci -> other.mixed
+            else -> 0
+        }
+        if (mixed2 != 0)
+            return (mixed1 and MASK_25BITS) == (mixed2 and MASK_25BITS)
+    }
+
+    if (scale != other.scale)
+        return false
+    if (precision != other.precision)
+        return false
+    if (roundingMode != other.roundingMode)
+        return false
+
+    return true
 }

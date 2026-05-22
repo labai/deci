@@ -24,9 +24,8 @@ SOFTWARE.
 package com.github.labai.deci.impl
 
 import com.github.labai.deci.RoundingMode
-import com.github.labai.deci.impl.TinyDec.Companion.ERR
-import com.github.labai.deci.impl.TinyDec.Companion.ZERO
 import java.math.BigDecimal
+import kotlin.math.absoluteValue
 
 /*
  * @author Augustus
@@ -55,14 +54,44 @@ import java.math.BigDecimal
  *
  */
 internal object TinyUDecMath {
-    const val MASK_VALUE: Int  = 0b00111111111111111111111111111111
+    const val MASK_VALUE: Int  = 0b00111111_11111111_11111111_11111111
     const val MAX_UNSCALED = 999_999_999 //
     const val ERR_VALUE = MAX_UNSCALED + 2 // 1000000001
-    const val MAX_POS = 3
     const val MAX_STR_LEN = 10 // count dot, but don't count '+'
     const val MAX_INT_LEN = 9  // number of digits
+    private const val MAX_POS = TinyDec4d.maxPos // =7
 
-    internal val POW: IntArray = intArrayOf(
+    val TWOINT_ERR = TwoInt(-1L)
+    val TWOINT_ZERO = TwoInt(0L)
+
+    // to avoid creation of objects, will use long and put there 2 ints
+    // this version for internal usage only!
+    @Suppress("NOTHING_TO_INLINE")
+    @JvmInline
+    value class TwoInt (
+        internal val long: Long
+    ) {
+        inline fun first() = (long ushr 32).toInt()
+        inline fun second() = long.toInt()
+        inline fun isErr() = long == -1L
+        companion object {
+            inline fun toTwoInt(first: Int, second: Int) = TwoInt((first.toLong() shl 32) or second.toLong())
+
+            fun toTwoIntWithTrimZero(unscaled: Int, pos: Int): TwoInt {
+                var res = unscaled
+                var pos = pos
+                while (pos > 0) {
+                    if (res % 10 != 0)
+                        break
+                    res /= 10
+                    pos--
+                }
+                return toTwoInt(res, pos)
+            }
+        }
+    }
+
+    val POW: IntArray = intArrayOf(
         1,                    // 0 / 10^0
         10,                   // 1 / 10^1
         100,                  // 2 / 10^2
@@ -76,7 +105,7 @@ internal object TinyUDecMath {
     )
 
     // no check, for private usage
-    private inline fun makeDec30(unscaled: Int, pos: Int): Int {
+    internal inline fun makeDec30(unscaled: Int, pos: Int): Int {
         return (pos shl 30) or unscaled
     }
 
@@ -93,90 +122,23 @@ internal object TinyUDecMath {
         return makeDec30(res, pos)
     }
 
-    fun trimTrailingZeros(tiny: TinyDec): TinyDec {
-        require(tiny.isValid()) { "Invalid tinyDec value (err)" }
-        return TinyDec(makeDec30Compact(tiny.unscaled(), tiny.pos()))
-    }
-
     // integer part
     fun getIntPart(unscaled: Int, pos: Int): Int {
         require(unscaled != ERR_VALUE) { "Invalid tinyDec value (err)" }
         return unscaled / POW[pos]
     }
 
-    fun buildTinyOrErr(value: Int, pos: Int): TinyDec {
-        if (pos !in 0..MAX_POS)
-            return ERR
-        if (value !in 1..MAX_UNSCALED)
-            return if (value == 0) ZERO else ERR
-        return TinyDec(makeDec30(value, pos))
-    }
-
-    private fun buildTinyOrErr(value: Long, pos: Int): TinyDec {
-        if (pos !in 0..MAX_POS)
-            return ERR
-        if (value !in 1..MAX_UNSCALED)
-            return if (value == 0L) ZERO else ERR
-        return TinyDec(makeDec30(value.toInt(), pos))
-    }
-
-    private fun buildTinyCompactOrErr(value: Int, pos: Int): TinyDec {
-        if (pos !in 0..MAX_POS)
-            return ERR
-        if (value !in 1..MAX_UNSCALED)
-            return if (value == 0) ZERO else ERR
-        return TinyDec(makeDec30Compact(value, pos))
-    }
-
-    private fun buildTinyCompactOrErr(value: Long, pos: Int): TinyDec {
-        if (pos !in 0..MAX_POS)
-            return ERR
-        if (value !in 1..MAX_UNSCALED)
-            return if (value == 0L) ZERO else ERR
-        return TinyDec(makeDec30Compact(value.toInt(), pos))
-    }
-
-    fun buildTiny(value: Int, pos: Int): TinyDec {
-        require(pos in 0..MAX_POS) { "Pos must be in 0..$MAX_POS ($pos)" }
-        if (value !in 1..MAX_UNSCALED) {
-            if (value == 0)
-                return ZERO
-            throw IllegalArgumentException("Value is too large ($value)")
-        }
-        return TinyDec(makeDec30(value, pos))
-    }
-
-    fun toBigDecimal(tiny: TinyDec): BigDecimal {
-        require(tiny.isValid()) { "Invalid tinyDec value (err)" }
-        return BigDecimal.valueOf(tiny.unscaled().toLong(), tiny.pos())
-    }
-
-    fun convertToTinyOrErr(value: Long): TinyDec {
-        if (value !in 0..MAX_UNSCALED)
-            return ERR
-        return buildTiny(value.toInt(), 0)
-    }
-
-    fun convertToTinyOrErr(value: Int): TinyDec {
-        if (value !in 0..MAX_UNSCALED)
-            return ERR
-        return buildTiny(value, 0)
-    }
-
-    internal fun round(tiny: TinyDec, scale: Int, roundingMode: RoundingMode): TinyDec {
-        if (tiny.isErr())
-            return tiny
-        val pos = tiny.pos()
-        if (pos <= scale)
-            return tiny
-        val unscaled = tiny.unscaled()
-
-        val drop = pos - scale
+    internal fun round(unscaled: Int, pos: Int, roundScale: Int, roundingMode: RoundingMode): TwoInt {
+        if (unscaled == ERR_VALUE)
+            return TWOINT_ERR
+        val drop = maxOf(pos - maxOf(roundScale, 0), 0)
+        if (drop == 0)
+            return TwoInt.toTwoInt(unscaled, pos)
         val shrank = divideAndRound(unscaled, POW[drop], roundingMode)
-        return buildTiny(shrank, scale)
+        return TwoInt.toTwoInt(shrank, roundScale)
     }
 
-    internal fun divideAndRound(dividend: Int, divisor: Int, roundingMode: RoundingMode): Int {
+    fun divideAndRound(dividend: Int, divisor: Int, roundingMode: RoundingMode): Int {
         val qt = dividend / divisor
         if (roundingMode == RoundingMode.DOWN)
             return qt
@@ -210,41 +172,9 @@ internal object TinyUDecMath {
         }
     }
 
-    // try to convert BigDecimal to tinyDec
-    // return ERR if out of limits
-    // don't try to trim zeros from dec (?)
-    fun convertToTinyOrErr(dec: BigDecimal): TinyDec {
-        when (dec.signum()) {
-            -1 -> return ERR
-            0 -> return ZERO
-        }
-        if (dec.precision() > MAX_INT_LEN) {
-            // may try to trimTrailingZeros, but that will create new objects, and small chance for success won't pay off (?)
-            return ERR
-        }
-
-        if (dec.scale() > MAX_POS)
-            return ERR
-
-        val unscaled: Long
-        val pos: Int
-        if (dec.scale() <= 0) {
-            unscaled = dec.toLong()
-            pos = 0
-        } else {
-            unscaled = dec.unscaledValue().toLong() // will be intermediate BigInteger allocation (?)
-            pos = dec.scale()
-        }
-
-        return buildTinyOrErr(unscaled, pos)
-    }
-
-    fun addOrErr(a: TinyDec, b: TinyDec): TinyDec {
-        // no explicit check for ERR - if either is ERR, sum will be > MAX_VALUE
-        val apos = a.pos()
-        val bpos = b.pos()
-        val aval = a.unscaled()
-        val bval = b.unscaled()
+    fun addOrErr(aval: Int, apos: Int, bval: Int, bpos: Int): TwoInt {
+        if (aval == ERR_VALUE || bval == ERR_VALUE)
+            return TWOINT_ERR
 
         val rpos: Int
         val rval: Long
@@ -260,17 +190,13 @@ internal object TinyUDecMath {
         }
 
         if (rval > MAX_UNSCALED)
-            return ERR
-        return buildTiny(rval.toInt(), rpos)
+            return TWOINT_ERR
+        return TwoInt.toTwoInt(rval.toInt(), rpos)
     }
 
-    fun subOrErr(a: TinyDec, b: TinyDec): TinyDec {
-        if (a == ERR || b == ERR)
-            return ERR
-        val apos = a.pos()
-        val aval = a.unscaled()
-        val bpos = b.pos()
-        val bval = b.unscaled()
+    fun subOrErr(aval: Int, apos: Int, bval: Int, bpos: Int): TwoInt {
+        if (aval == ERR_VALUE || bval == ERR_VALUE)
+            return TWOINT_ERR
 
         val rpos: Int
         var rval: Long
@@ -285,35 +211,31 @@ internal object TinyUDecMath {
             rval = aval.toLong() - bval.toLong() * POW[apos - bpos]
         }
         if (rval !in 0..MAX_UNSCALED)
-            return ERR
-        return buildTiny(rval.toInt(), rpos)
+            return TWOINT_ERR
+        return TwoInt.toTwoInt(rval.toInt(), rpos)
     }
 
-    fun mulOrErr(a: TinyDec, b: TinyDec): TinyDec {
-        if (a == ERR || b == ERR)
-            return ERR
-        val apos = a.pos()
-        val aval = a.unscaled()
-        val bpos = b.pos()
-        val bval = b.unscaled()
+    fun mulOrErr(aval: Int, apos: Int, bval: Int, bpos: Int): TwoInt {
+        if (aval == ERR_VALUE || bval == ERR_VALUE)
+            return TWOINT_ERR
 
         var rval: Long = aval.toLong() * bval
         var rpos = apos + bpos
         if (rpos <= MAX_POS && rval <= MAX_UNSCALED) {
             // all good, fit everywhere
-            return buildTiny(rval.toInt(), rpos)
+            return TwoInt.toTwoInt(rval.toInt(), rpos)
         }
 
         // chance there are trailing zeros
         while (rpos > MAX_POS || rval > MAX_UNSCALED) {
             if (rpos == 0)
-                return ERR
+                return TWOINT_ERR
             if (rval % 10 != 0L)
-                return ERR
+                return TWOINT_ERR
             rval /= 10
             rpos--
         }
-        return buildTinyOrErr(rval.toInt(), rpos)
+        return TwoInt.toTwoInt(rval.toInt(), rpos)
     }
 
 
@@ -322,54 +244,48 @@ internal object TinyUDecMath {
     // quick check for few special cases
     // (0, 1, 10^n)
     //
-    fun tryDivOrErr(u: TinyDec, v: TinyDec): TinyDec {
+    fun tryDivOrErr(aval: Int, apos: Int, bval: Int, bpos: Int): TwoInt {
         // assume tiny is normalized (w/o trailing zeros)
-        if (u == ERR || v == ERR)
-            return ERR
-        val uval = u.unscaled()
-        val vval = v.unscaled()
-        val vpos = v.pos()
-        if (vval == 0)
-            return ERR
-        if (uval == 0)
-            return ZERO
-        if (vpos == 0) {
+        if (aval == ERR_VALUE || bval == ERR_VALUE)
+            return TWOINT_ERR
+        if (bval == 0)
+            return TWOINT_ERR
+        if (aval == 0)
+            return TWOINT_ZERO
+        if (bpos == 0) {
             for (i in POW.indices) {
-                if (POW[i] >= vval) {
-                    if (vval == POW[i]) { // exact power of 10
-                        return buildTinyCompactOrErr(uval, u.pos() + i) // if overflowed, it will be handled here
+                if (POW[i] >= bval) {
+                    if (bval == POW[i]) { // exact power of 10
+                        return TwoInt.toTwoIntWithTrimZero(aval, apos + i) // if overflowed, it will be handled later
                     }
                     break
                 }
             }
         }
-        if (vval == 1) { // 1, 0.1, 0.01, ...
-            val rpos = u.pos() - vpos
+        if (bval == 1) { // 1, 0.1, 0.01, ...
+            val rpos = apos - bpos
             if (rpos < 0) {
-                val rval = uval.toLong() * POW[-rpos]
-                return buildTinyCompactOrErr(rval, 0)
+                val rval = aval.toLong() * POW[-rpos]
+                if (rval !in 0..MAX_UNSCALED)
+                    return TWOINT_ERR
+                return TwoInt.toTwoInt(rval.toInt(), 0)
             } else {
-                return buildTinyCompactOrErr(uval, rpos)
+                return TwoInt.toTwoIntWithTrimZero(aval, rpos)
             }
         }
 
-        if (uval % vval == 0) {
-            return buildTinyCompactOrErr(uval / vval, u.pos() - vpos)
+        if (aval % bval == 0) {
+            return TwoInt.toTwoIntWithTrimZero(aval / bval, apos - bpos)
         }
-        return ERR
+        return TWOINT_ERR
     }
 
     // returns a % b
-    fun remOrErr(a: TinyDec, b: TinyDec): TinyDec {
-        if (a == ERR || b == ERR)
-            return ERR
-        val bval = b.unscaled()
+    fun remOrErr(aval: Int, apos: Int, bval: Int, bpos: Int): TwoInt {
+        if (aval == ERR_VALUE || bval == ERR_VALUE)
+            return TWOINT_ERR
         if (bval == 0)
-            return ERR
-
-        val apos = a.pos()
-        val bpos = b.pos()
-        val aval = a.unscaled()
+            return TWOINT_ERR
 
         val rpos: Int
         val rval: Long
@@ -384,9 +300,8 @@ internal object TinyUDecMath {
             rval = aval.toLong() % (bval.toLong() * POW[apos - bpos])
         }
 
-        return buildTinyOrErr(rval.toInt(), rpos)
+        return TwoInt.toTwoInt(rval.toInt(), rpos)
     }
-
 
     fun toString(unscaled: Int, pos: Int): String {
         if (unscaled == ERR_VALUE)
@@ -446,5 +361,101 @@ internal object TinyUDecMath {
         if (aUnscaled == ERR_VALUE || bUnscaled == ERR_VALUE)
             return aUnscaled == bUnscaled // ERR == ERR
         return compare(aUnscaled, aPos, bUnscaled, bPos) == 0
+    }
+
+    private inline fun errOrRaise(silent: Boolean, lazyMessage: () -> Any): TwoInt {
+        if (!silent)
+            throw IllegalArgumentException(lazyMessage().toString())
+        return TWOINT_ERR
+    }
+
+    // as we don't know yet which of TinyDec will use (it depends on number of decimals),
+    // we return result as bigger number (stored in Long) and then caller will decide how to use it.
+    // but still we limit number of digits (9) and range of decimals
+    internal fun parseString(str: String, limitDigits: Int, minPos: Int, maxPos: Int, silent: Boolean): TwoInt {
+        if (str.isEmpty()) return errOrRaise(silent) { "String is empty" }
+
+        val start = when (str[0]) {
+            '+' -> 1
+            '-' -> return errOrRaise(silent) { "Only positive numbers are allowed." }
+            else -> 0
+        }
+
+        var value = 0
+        var digitCount = 0
+        var dot = -1
+        var trailingZeros = 0
+
+        for (i in start until str.length) {
+            when (val c = str[i]) {
+                '.' -> {
+                    if (dot >= 0) return errOrRaise(silent) { "Invalid number format: $str" }
+                    dot = digitCount // position in digit sequence, not in string
+                }
+                in '0'..'9' -> {
+                    if (dot >= 0) {
+                        if (c == '0') {
+                            trailingZeros++
+                        } else if (trailingZeros == 0) {
+                            value = value * 10 + (c - '0')
+                            digitCount++
+                            if (digitCount > limitDigits) return errOrRaise(silent) { "String value too long: $str" }
+                        } else { // reset, flush deferred zeros and add current digit
+                            trailingZeros++
+                            digitCount += trailingZeros
+                            if (digitCount > limitDigits) return errOrRaise(silent) { "String value too long: $str" }
+                            value = value * POW[trailingZeros] + (c - '0')
+                            trailingZeros = 0
+                        }
+                    } else {
+                        value = value * 10 + (c - '0')
+                        digitCount++
+                        if (digitCount > limitDigits) return errOrRaise(silent) { "String value too long: $str" }
+                    }
+                }
+                else -> return errOrRaise(silent) { "Invalid character '$c' in: $str" }
+            }
+        }
+
+        val pos = if (dot < 0) 0 else maxOf(digitCount - dot, 0)
+
+        if (pos < minPos)
+            return errOrRaise(silent) { "Too small number of decimals: $str" }
+        if (pos > maxPos)
+            return errOrRaise(silent) { "Too big number of decimals: $str" }
+
+        return TwoInt.toTwoInt(value, pos)
+    }
+
+    fun fromBigDecimalUnsigned(dec: BigDecimal, maxPos: Int,): TwoInt {
+        when (dec.signum()) {
+            -1 -> return TWOINT_ERR
+            0 -> return TWOINT_ZERO
+        }
+        if (dec.precision() > MAX_INT_LEN) {
+            // may try to trimTrailingZeros, but that will create new objects, and small chance for success won't pay off (?)
+            return TWOINT_ERR
+        }
+
+        if (dec.scale() > maxPos) {
+            return TWOINT_ERR
+        }
+
+        var unscaled: Long
+        val pos: Int
+        if (dec.scale() <= 0) {
+            unscaled = dec.toLong()
+            pos = 0
+        } else {
+            unscaled = dec.unscaledValue().toLong() // will be intermediate BigInteger allocation (?)
+            pos = dec.scale()
+        }
+        if (unscaled < 0)
+            unscaled = unscaled.absoluteValue
+
+        if (unscaled !in 0..MAX_UNSCALED)
+            return TWOINT_ERR
+
+        return TwoInt.toTwoInt(unscaled.toInt(), pos)
     }
 }

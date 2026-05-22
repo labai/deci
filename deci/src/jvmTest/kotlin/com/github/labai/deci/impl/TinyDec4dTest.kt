@@ -31,9 +31,8 @@ import com.github.labai.deci.RoundingMode.HALF_DOWN
 import com.github.labai.deci.RoundingMode.HALF_EVEN
 import com.github.labai.deci.RoundingMode.HALF_UP
 import com.github.labai.deci.RoundingMode.UP
-import com.github.labai.deci.impl.Tiny2iUtils.TWOINT_ERR
-import com.github.labai.deci.impl.TinyDec.Companion.ERR
 import com.github.labai.deci.impl.TinyDec4d.Companion.buildTiny4dOrErr
+import com.github.labai.deci.impl.TinyUDecMath.TWOINT_ERR
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
@@ -42,6 +41,39 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 class TinyDec4dTest {
+
+
+    @ParameterizedTest
+    @CsvSource(
+        "0,     0,   0",
+        "0,     4,   0",
+        "1110,  3,   1.11",
+        "1,     4,   0.0001",
+        "999999999, 4, 99999.9999",
+        "999999999, 7, 99.9999999",
+        "0,    -1,   (error)",
+        "-1,    0,   (error)",
+        "1,    -1,   (error)",
+        "1,     8,   (error)",
+        "999999999,  3, (error)",
+        "1000000000, 4, (error)",
+        "100000,     0, (error)",
+        "1000000001, 4, (error)",
+        "100001,     0, (error)",
+    )
+    fun test_d4d_build(unscaled: Int, pos: Int, expected: String) {
+        if (expected == "(error)") {
+            assertEquals(TinyDec4d.ERR, TinyDec4d.buildTiny4dOrErr(unscaled, pos))
+            assertThrows<IllegalArgumentException> {
+                TinyDec4d.buildTiny4d(unscaled, pos)
+            }
+        } else {
+            val dec1 = TinyDec4d.buildTiny4d(unscaled, pos)
+            val dec2 = TinyDec4d.buildTiny4dOrErr(unscaled, pos)
+            assertEquals(expected, dec1.toString())
+            assertEquals(expected, dec2.toString())
+        }
+    }
 
     //
     // parseString, toString
@@ -67,6 +99,10 @@ class TinyDec4dTest {
         val dec = TinyDec4d.parseString(str)
         assertEquals(expectedUnscaled, dec.unscaled())
         assertEquals(expectedPos, dec.pos())
+
+        val dec2 = TinyDec4d.parseStringOrErr(str)
+        assertEquals(expectedUnscaled, dec2.unscaled())
+        assertEquals(expectedPos, dec2.pos())
     }
 
     @ParameterizedTest
@@ -81,6 +117,7 @@ class TinyDec4dTest {
         "1 1",
     )
     fun test_d4d_parseString_invalid(str: String) {
+        assertEquals(TinyDec4d.ERR, TinyDec4d.parseStringOrErr(str))
         assertThrows<IllegalArgumentException> { TinyDec4d.parseString(str) }
     }
 
@@ -109,14 +146,14 @@ class TinyDec4dTest {
 
     @Test
     fun test_d4d_toString_err() {
-        assertEquals("Err", ERR.toString())
+        assertEquals("Err", TinyDec4d.ERR.toString())
     }
 
     //
     // round
     //
     private fun round4d(tiny: TinyDec4d, scale: Int, roundingMode: RoundingMode): TinyDec4d {
-        val r = Tiny2iUtils.round(tiny.unscaled(), tiny.pos(), scale, roundingMode)
+        val r = TinyUDecMath.round(tiny.unscaled(), tiny.pos(), scale, roundingMode)
         if (r == TWOINT_ERR)
             return TinyDec4d.ERR
         return buildTiny4dOrErr(r.first(), r.second())
@@ -196,8 +233,27 @@ class TinyDec4dTest {
     )
     fun test_d4d_convertToTiny_bigDec(d: String, expected: String) {
         val dec = d.toBigDecimal()
-        val result = TinyDec4d.valueOf(dec)
-        assertDecEquals(dec(expected), result)
+        val result = TinyUDecMath.fromBigDecimalUnsigned(dec, 7)
+        val tiny = if (result == TWOINT_ERR) TinyDec4d.ERR else TinyDec4d.buildTiny4dOrErr(result.first(), result.second())
+        assertDecEquals(dec(expected), tiny)
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "0,       0",
+        "100,     100",
+        "50000,   50000",
+        "-1,      ERR",
+        "100000,  ERR",
+    )
+    fun test_d4d_convertToTiny_long(d: String, expected: String) {
+        val long = d.toLong()
+        val res1 = TinyDec4d.valueOf(long)
+        assertEquals(dec(expected), res1)
+
+        val int = d.toInt()
+        val res2 = TinyDec4d.valueOf(int)
+        assertEquals(dec(expected), res2)
     }
 
     @ParameterizedTest
@@ -210,9 +266,11 @@ class TinyDec4dTest {
     fun test_d4d_getIntPart(dstr: String, expected: String) {
         val dec = dec(dstr)
         if (expected == "(error)") {
-            assertThrows<IllegalArgumentException> { dec.intPart() }
+            assertThrows<IllegalArgumentException> {
+                TinyUDecMath.getIntPart(dec.unscaled(), dec.pos())
+            }
         } else {
-            val result = dec.intPart()
+            val result = TinyUDecMath.getIntPart(dec.unscaled(), dec.pos())
             assertEquals(expected.toInt(), result)
         }
     }

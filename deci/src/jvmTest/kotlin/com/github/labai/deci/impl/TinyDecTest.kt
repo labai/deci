@@ -31,6 +31,7 @@ import com.github.labai.deci.RoundingMode.HALF_EVEN
 import com.github.labai.deci.RoundingMode.HALF_UP
 import com.github.labai.deci.RoundingMode.UP
 import com.github.labai.deci.impl.TinyDec.Companion.ERR
+import com.github.labai.deci.impl.TinyUDecMath.TWOINT_ERR
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
@@ -40,6 +41,33 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class TinyDecTest {
+
+    @ParameterizedTest
+    @CsvSource(
+        "0,     0,   0",
+        "1110,  3,   1.11",
+        "999999999, 0, 999999999",
+        "999999999, 3, 999999.999",
+        "0,    -1,   (error)",
+        "-1,    0,   (error)",
+        "1,    -1,   (error)",
+        "1,     4,   (error)",
+        "1000000000, 0, (error)",
+        "1000000001, 0, (error)",
+    )
+    fun test_build(unscaled: Int, pos: Int, expected: String) {
+        if (expected == "(error)") {
+            assertEquals(ERR, TinyDec.buildTinyOrErr(unscaled, pos))
+            assertThrows<IllegalArgumentException> {
+                TinyDec.buildTiny(unscaled, pos)
+            }
+        } else {
+            val dec1 = TinyDec.buildTiny(unscaled, pos)
+            val dec2 = TinyDec.buildTinyOrErr(unscaled, pos)
+            assertEquals(expected, dec1.toString())
+            assertEquals(expected, dec2.toString())
+        }
+    }
 
     //
     // parseString, toString
@@ -67,6 +95,10 @@ class TinyDecTest {
         val dec = TinyDec.parseString(str)
         assertEquals(expectedUnscaled, dec.unscaled())
         assertEquals(expectedPos, dec.pos())
+
+        val dec2 = TinyDec.parseStringOrErr(str)
+        assertEquals(expectedUnscaled, dec2.unscaled())
+        assertEquals(expectedPos, dec2.pos())
     }
 
     @ParameterizedTest
@@ -81,7 +113,10 @@ class TinyDecTest {
         "1 1",
     )
     fun test_parseString_invalid(str: String) {
-        assertThrows<IllegalArgumentException> { TinyDec.parseString(str) }
+        assertEquals(ERR, TinyDec.parseStringOrErr(str))
+        assertThrows<IllegalArgumentException> {
+            TinyDec.parseString(str)
+        }
     }
 
     @Test
@@ -367,7 +402,7 @@ class TinyDecTest {
         "1.1,  1, 1.1",
         "1,    1, 1",
         "10,   0, 10",
-        "10,   -1, (error)",
+        "10,   -1, 10", // just no round
     )
     fun test_round(a: String, scale: Int, expected: String) {
         val a = dec(a)
@@ -386,7 +421,7 @@ class TinyDecTest {
         "1.25, 1.3, 1.2, 1.3, 1.2, 1.3, 1.2, 1.2",
         "1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1",
         "1, 1, 1, 1, 1, 1, 1, 1",
-        "1, 1, 1, 1, 1, 1, 1, 1",
+        "0, 0, 0, 0, 0, 0, 0, 0",
     )
     fun test_round_modes(a: String, expUp: String, expDown: String, expCeiling: String, expFloor: String, expHalfUp: String, expHalfDown: String, expHalfEven: String) {
         val a = dec(a)
@@ -452,8 +487,9 @@ class TinyDecTest {
     )
     fun test_convertToTiny_bigDec(d: String, expected: String) {
         val dec = d.toBigDecimal()
-        val result = TinyDec.valueOf(dec)
-        assertDecEquals(dec(expected), result)
+        val result = TinyUDecMath.fromBigDecimalUnsigned(dec, 3)
+        val tiny = if (result == TWOINT_ERR) ERR else TinyDec.buildTiny(result.first(), result.second())
+        assertDecEquals(dec(expected), tiny)
     }
 
     @ParameterizedTest

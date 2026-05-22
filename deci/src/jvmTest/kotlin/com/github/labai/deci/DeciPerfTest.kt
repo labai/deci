@@ -22,7 +22,7 @@ import kotlin.time.measureTime
  */
 class DeciPerfTest {
 
-    // 226ms
+    // 234ms
     @Disabled
     @Test
     fun test_perf_1_when_allTiny() {

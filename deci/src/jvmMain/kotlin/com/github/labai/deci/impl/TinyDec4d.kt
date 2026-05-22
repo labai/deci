@@ -23,12 +23,11 @@ SOFTWARE.
 */
 package com.github.labai.deci.impl
 
-import com.github.labai.deci.RoundingMode
-import com.github.labai.deci.impl.Tiny2iUtils.TWOINT_ERR
 import com.github.labai.deci.impl.TinyUDecMath.ERR_VALUE
 import com.github.labai.deci.impl.TinyUDecMath.MAX_INT_LEN
 import com.github.labai.deci.impl.TinyUDecMath.MAX_UNSCALED
 import com.github.labai.deci.impl.TinyUDecMath.POW
+import com.github.labai.deci.impl.TinyUDecMath.TWOINT_ERR
 import com.github.labai.deci.impl.TinyUDecMath.makeDec30Compact
 import java.math.BigDecimal
 
@@ -53,8 +52,6 @@ import java.math.BigDecimal
  *   12345.12345 - too many digits
  *   -1          - negatives are not supported
  *
- * Not used yet
- *
  */
 @Suppress("NOTHING_TO_INLINE", "OVERRIDE_BY_INLINE")
 @JvmInline
@@ -63,83 +60,74 @@ internal value class TinyDec4d (
 ) : ITinyDec<TinyDec4d> {
     override inline fun pos() = (raw ushr 30) + 4
     override inline fun unscaled() = raw and TinyUDecMath.MASK_VALUE
-
-    fun trimTrailingZeros(): TinyDec4d = trimTrailingZeros(this)
-
-    override fun toBigDecimal(): BigDecimal {
-        require(this.isValid()) { "Invalid tinyDec4d value (err)" }
-        return BigDecimal.valueOf(unscaled().toLong(), pos())
-    }
-    override fun intPart() = TinyUDecMath.getIntPart(unscaled(), pos())
     override fun isZero(): Boolean = unscaled() == 0
-    override fun isErr(): Boolean = raw == ERR_VALUE
-    override fun isValid(): Boolean = raw != ERR_VALUE
+    override inline fun isErr(): Boolean = raw == ERR_VALUE
+    override inline fun isValid(): Boolean = raw != ERR_VALUE
     override fun toString(): String = TinyUDecMath.toString(unscaled(), pos())
+    fun trimTrailingZeros(): TinyDec4d = trimTrailingZeros(this)
+    fun toBigDecimal(): BigDecimal = toBigDecimal(this)
 
     companion object {
-        private val ZERO: TinyDec4d = TinyDec4d(0)
-        internal val ERR: TinyDec4d = TinyDec4d(ERR_VALUE)
+        val ERR = TinyDec4d(ERR_VALUE)
+        val ZERO = TinyDec4d(0)
         private const val minPos = 4
         internal const val maxPos = 7
 
-        fun valueOf(dec: BigDecimal): TinyDec4d {
-            when (dec.signum()) {
-                -1 -> return ERR
-                0 -> return ZERO
-            }
-            if (dec.precision() > MAX_INT_LEN) {
-                // may try to trimTrailingZeros, but that will create new objects, and small chance for success won't pay off (?)
+        fun parseString(str: String): TinyDec4d {
+            val pair = TinyUDecMath.parseString(str, MAX_INT_LEN, 0, maxPos, false)
+            return buildTiny4d(pair.first(), pair.second())
+        }
+
+        fun parseStringOrErr(str: String): TinyDec4d {
+            val pair = TinyUDecMath.parseString(str, MAX_INT_LEN, 0, maxPos, true)
+            if (pair == TWOINT_ERR)
                 return ERR
-            }
+            return buildTiny4dOrErr(pair.first(), pair.second())
+        }
 
-            if (dec.scale() > maxPos) {
+        fun valueOf(int: Int): TinyDec4d {
+            return buildTiny4dOrErr(int, 0)
+        }
+
+        fun valueOf(long: Long): TinyDec4d {
+            if (long !in 0..MAX_UNSCALED)
                 return ERR
-            }
-
-            val unscaled: Long
-            val pos: Int
-            if (dec.scale() <= 0) {
-                unscaled = dec.toLong()
-                pos = 0
-            } else {
-                unscaled = dec.unscaledValue().toLong() // will be intermediate BigInteger allocation (?)
-                pos = dec.scale()
-            }
-
-            return if (unscaled > MAX_UNSCALED) ERR else buildTiny4dOrErr(unscaled.toInt(), pos)
+            return buildTiny4dOrErr(long.toInt(), 0)
         }
 
         fun buildTiny4dOrErr(unscaled: Int, pos: Int): TinyDec4d {
-            if (unscaled !in 1..MAX_UNSCALED)
-                return if (unscaled == 0) ZERO else ERR
             if (pos !in minPos..maxPos) {
                 if (pos in 0..<minPos) {
+                    if (unscaled == 0)
+                        return ZERO
                     val shifted: Long = unscaled.toLong() * POW[minPos - pos]
-                    if (shifted <= MAX_UNSCALED)
+                    if (shifted in 1..MAX_UNSCALED)
                         return makeTinyDec4d(shifted.toInt(), minPos)
                 }
                 return ERR
             }
+            if (unscaled !in 1..MAX_UNSCALED)
+                return if (unscaled == 0) ZERO else ERR
             return makeTinyDec4d(unscaled, pos)
         }
 
         fun buildTiny4d(unscaled: Int, pos: Int): TinyDec4d {
+            if (pos !in minPos..maxPos) {
+                if (pos in 0..<minPos) {
+                    if (unscaled == 0)
+                        return ZERO
+                    val shifted: Long = unscaled.toLong() * POW[minPos - pos]
+                    if (shifted !in 0..MAX_UNSCALED)
+                        throw IllegalArgumentException("Value is too large for precision ($unscaled:$pos)")
+                    return makeTinyDec4d(shifted.toInt(), minPos)
+                }
+                throw IllegalArgumentException("Pos must be in 0..$maxPos ($pos) ")
+            }
             if (unscaled !in 1..MAX_UNSCALED) {
-                @Suppress("UNCHECKED_CAST")
                 if (unscaled == 0)
                     return ZERO
                 throw IllegalArgumentException("Value is too large ($unscaled)")
             }
-            if (pos !in minPos..maxPos) {
-                if (pos in 0..<minPos) {
-                    val shifted: Long = unscaled.toLong() * POW[minPos - pos]
-                    if (shifted >= MAX_UNSCALED)
-                        throw IllegalArgumentException("Value is too large for precision ($unscaled:$pos)")
-                    return makeTinyDec4d(shifted.toInt(), minPos)
-                }
-                throw IllegalArgumentException("Pos must be in $minPos..$maxPos ($pos) ")
-            }
-
             return makeTinyDec4d(unscaled, pos)
         }
 
@@ -147,24 +135,16 @@ internal value class TinyDec4d (
             return TinyDec4d((pos shl 30) or unscaled)
         }
 
-        // will throw an exception in case of error
-        fun parseString(str: String): TinyDec4d {
-            val pair = Tiny2iUtils.parseString(str, MAX_INT_LEN, 0, maxPos, false)
-            return buildTiny4d(pair.first(), pair.second())
-        }
-
-        fun parseStringOrErr(str: String): TinyDec4d {
-            val pair = Tiny2iUtils.parseString(str, MAX_INT_LEN, 0, maxPos, true)
-            if (pair == TWOINT_ERR)
-                return ERR
-            return buildTiny4dOrErr(pair.first(), pair.second())
-        }
-
         fun trimTrailingZeros(tiny: TinyDec4d): TinyDec4d {
             require(tiny.isValid()) { "Invalid tinyDec value (err)" }
             val posAdjusted = tiny.pos() - 4 // makeDec30Compact will do an Int for TinyDec, which is same as TinyDec4d with -4 pos
             val raw = makeDec30Compact(tiny.unscaled(), posAdjusted)
             return TinyDec4d(raw)
+        }
+
+        fun toBigDecimal(tiny: TinyDec4d): BigDecimal {
+            require(tiny.isValid()) { "Invalid tinyDec value (err)" }
+            return BigDecimal.valueOf(tiny.unscaled().toLong(), tiny.pos())
         }
     }
 }

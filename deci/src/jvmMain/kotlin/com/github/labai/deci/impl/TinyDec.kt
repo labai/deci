@@ -23,10 +23,12 @@ SOFTWARE.
 */
 package com.github.labai.deci.impl
 
-import com.github.labai.deci.RoundingMode
-import com.github.labai.deci.impl.Tiny2iUtils.TWOINT_ERR
 import com.github.labai.deci.impl.TinyUDecMath.ERR_VALUE
 import com.github.labai.deci.impl.TinyUDecMath.MAX_INT_LEN
+import com.github.labai.deci.impl.TinyUDecMath.MAX_UNSCALED
+import com.github.labai.deci.impl.TinyUDecMath.TWOINT_ERR
+import com.github.labai.deci.impl.TinyUDecMath.makeDec30
+import com.github.labai.deci.impl.TinyUDecMath.makeDec30Compact
 import java.math.BigDecimal
 
 /*
@@ -57,49 +59,71 @@ import java.math.BigDecimal
  */
 @Suppress("NOTHING_TO_INLINE", "OVERRIDE_BY_INLINE")
 @JvmInline
-internal value class TinyDec (
+internal value class TinyDec(
     internal val raw: Int
 ) : ITinyDec<TinyDec> {
     override inline fun pos() = raw ushr 30
     override inline fun unscaled() = raw and TinyUDecMath.MASK_VALUE
-    fun add(other: TinyDec) = TinyUDecMath.addOrErr(this, other)
-    fun sub(other: TinyDec) = TinyUDecMath.subOrErr(this, other)
-    fun mul(other: TinyDec) = TinyUDecMath.mulOrErr(this, other)
-    fun tryDiv(other: TinyDec) = TinyUDecMath.tryDivOrErr(this, other) // support only few cases w/o rounding
-    fun rem(other: TinyDec) = TinyUDecMath.remOrErr(this, other)
-    fun round(scale: Int, roundingMode: RoundingMode) = TinyUDecMath.round(this, scale, roundingMode)
-    fun trimTrailingZeros(): TinyDec = TinyUDecMath.trimTrailingZeros(this)
-    override fun intPart() = TinyUDecMath.getIntPart(unscaled(), pos())
-    override fun toBigDecimal(): BigDecimal = TinyUDecMath.toBigDecimal(this)
     override fun isZero(): Boolean = unscaled() == 0
-    override inline fun isErr(): Boolean = raw == TinyUDecMath.ERR_VALUE
-    override inline fun isValid(): Boolean = raw != TinyUDecMath.ERR_VALUE
-    fun isEqual(other: TinyDec): Boolean = TinyUDecMath.isEqual(this.unscaled(), this.pos(), other.unscaled(), other.pos())
-    fun isEqual(other: TinyDec4d): Boolean = TinyUDecMath.isEqual(this.unscaled(), this.pos(), other.unscaled(), other.pos())
-    fun compareTo(other: TinyDec) = TinyUDecMath.compare(this.unscaled(), this.pos(), other.unscaled(), other.pos())
-    fun compareTo(other: TinyDec4d) = TinyUDecMath.compare(this.unscaled(), this.pos(), other.unscaled(), other.pos())
+    override inline fun isErr(): Boolean = raw == ERR_VALUE
+    override inline fun isValid(): Boolean = raw != ERR_VALUE
     override fun toString(): String = TinyUDecMath.toString(unscaled(), pos())
+    fun trimTrailingZeros(): TinyDec = trimTrailingZeros(this)
+    fun toBigDecimal(): BigDecimal = toBigDecimal(this)
 
     companion object {
-        internal val ERR = TinyDec(ERR_VALUE)
-        internal val ZERO = TinyDec(0)
-
-        private const val minPos = 0
+        val ERR = TinyDec(ERR_VALUE)
+        val ZERO = TinyDec(0)
         private const val maxPos = 3
-        fun buildTiny(unscaled: Int, pos: Int) = TinyUDecMath.buildTiny(unscaled, pos)
-        fun buildTinyOrErr(unscaled: Int, pos: Int) = TinyUDecMath.buildTinyOrErr(unscaled, pos)
+
         fun parseString(str: String): TinyDec {
-            val two = Tiny2iUtils.parseString(str, MAX_INT_LEN, minPos, maxPos, false)
-            return buildTiny(two.first(), two.second())
+            val pair = TinyUDecMath.parseString(str, MAX_INT_LEN, 0, maxPos, false)
+            return buildTiny(pair.first(), pair.second())
         }
+
         fun parseStringOrErr(str: String): TinyDec {
-            val two = Tiny2iUtils.parseString(str, MAX_INT_LEN, minPos, maxPos, true)
-            if (two == TWOINT_ERR)
+            val pair = TinyUDecMath.parseString(str, MAX_INT_LEN, 0, maxPos, true)
+            if (pair == TWOINT_ERR)
                 return ERR
-            return buildTinyOrErr(two.first(), two.second())
+            return buildTinyOrErr(pair.first(), pair.second())
         }
-        fun valueOf(bigdec: BigDecimal): TinyDec = TinyUDecMath.convertToTinyOrErr(bigdec)
-        fun valueOf(int: Int): TinyDec = TinyUDecMath.convertToTinyOrErr(int)
-        fun valueOf(long: Long): TinyDec = TinyUDecMath.convertToTinyOrErr(long)
+
+        fun valueOf(int: Int): TinyDec {
+            return buildTinyOrErr(int, 0)
+        }
+
+        fun valueOf(long: Long): TinyDec {
+            if (long !in 0..MAX_UNSCALED)
+                return ERR
+            return buildTinyOrErr(long.toInt(), 0)
+        }
+
+        fun buildTinyOrErr(value: Int, pos: Int): TinyDec {
+            if (pos !in 0..maxPos)
+                return ERR
+            if (value !in 1..MAX_UNSCALED)
+                return if (value == 0) ZERO else ERR
+            return TinyDec(makeDec30(value, pos))
+        }
+
+        fun buildTiny(unscaled: Int, pos: Int): TinyDec {
+            require(pos in 0..maxPos) { "Pos must be in 0..$maxPos ($pos)" }
+            if (unscaled !in 1..MAX_UNSCALED) {
+                if (unscaled == 0)
+                    return ZERO
+                throw IllegalArgumentException("Value is too large ($unscaled)")
+            }
+            return TinyDec(makeDec30(unscaled, pos))
+        }
+
+        fun trimTrailingZeros(tiny: TinyDec): TinyDec {
+            require(tiny.isValid()) { "Invalid tinyDec value (err)" }
+            return TinyDec(makeDec30Compact(tiny.unscaled(), tiny.pos()))
+        }
+
+        fun toBigDecimal(tiny: TinyDec): BigDecimal {
+            require(tiny.isValid()) { "Invalid tinyDec value (err)" }
+            return BigDecimal.valueOf(tiny.unscaled().toLong(), tiny.pos())
+        }
     }
 }

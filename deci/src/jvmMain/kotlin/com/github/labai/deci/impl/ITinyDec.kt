@@ -23,8 +23,6 @@ SOFTWARE.
 */
 package com.github.labai.deci.impl
 
-import java.math.BigDecimal
-
 /**
  * @author Augustus
  * created on 2026-05-01
@@ -32,8 +30,6 @@ import java.math.BigDecimal
 internal interface ITinyDec<Tiny : ITinyDec<Tiny>> {
     fun pos(): Int
     fun unscaled(): Int
-    fun intPart(): Int
-    fun toBigDecimal(): BigDecimal
     fun isZero(): Boolean
     fun isErr(): Boolean
     fun isValid(): Boolean

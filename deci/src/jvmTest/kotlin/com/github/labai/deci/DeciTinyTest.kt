@@ -23,14 +23,17 @@ SOFTWARE.
 */
 package com.github.labai.deci
 
+import com.github.labai.deci.RoundingMode.HALF_UP
 import com.github.labai.deci.impl.TinyDec
 import com.github.labai.deci.impl.TinyUDecMath.ERR_VALUE
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import java.math.BigDecimal
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * @author Augustus
@@ -148,6 +151,7 @@ class DeciTinyTest {
 
     @ParameterizedTest
     @CsvSource(
+        "0,    0",
         "-1.1, 1.1",
         "1.1,  -1.1",
         "1000000000.1, -1000000000.1",
@@ -183,6 +187,102 @@ class DeciTinyTest {
 
         assertNull(d.decimal)
         assertEquals("46", d.tinyDec.toString())
+    }
+
+    @Test
+    fun test_deciTiny_tryInitTinyDec() {
+        // TinyDec
+        val d1 = Deci("-12.100000".toBigDecimal())
+        assertEquals(ERR_VALUE, d1.tinyDec.raw)
+        d1.tryInitTinyDec()
+        assertFalse(isFlagSet(d1.mixed, FLAG_TINY_DEC4))
+        assertTrue(isFlagSet(d1.mixed, FLAG_NEGATIVE))
+        assertTrue(isFlagSet(d1.mixed, FLAG_TINY_TRIM))
+        assertTrue(isFlagSet(d1.mixed, FLAG_BIGD_TRIM))
+        assertEquals("12.1", d1.tinyDec.toString())
+        assertEquals("-12.1", d1.toString())
+
+        // TinyDec4d
+        val d2 = Deci("-12.1000100000".toBigDecimal())
+        assertEquals(ERR_VALUE, d2.tinyDec.raw)
+        d2.tryInitTinyDec()
+        assertTrue(isFlagSet(d2.mixed, FLAG_TINY_DEC4))
+        assertTrue(isFlagSet(d2.mixed, FLAG_NEGATIVE))
+        assertTrue(isFlagSet(d2.mixed, FLAG_TINY_TRIM))
+        assertTrue(isFlagSet(d1.mixed, FLAG_BIGD_TRIM))
+        assertEquals("-12.10001", d2.toString())
+    }
+
+    @Test
+    fun test_deciTiny_round() {
+        // TinyDec
+        step {
+            val d = Deci("-12.11".toBigDecimal())
+            d.tryInitTinyDec()
+            assertFalse(isFlagSet(d.mixed, FLAG_TINY_DEC4))
+            val res = d.round(1)
+            assertEquals("-12.1", res.toString())
+        }
+
+        // TinyDec4d
+        val d1 = Deci("-12.123456".toBigDecimal())
+        step {
+            d1.tryInitTinyDec()
+            assertTrue(isFlagSet(d1.mixed, FLAG_TINY_DEC4))
+            val res = d1.round(5)
+            assertEquals("-12.12346", res.toString())
+        }
+
+        // TinyDec4d -> TinyDec
+        step {
+            val res = d1.round(2)
+            assertEquals("-12.12", res.toString())
+            assertFalse(isFlagSet(res.mixed, FLAG_TINY_DEC4))
+        }
+    }
+
+    @Test
+    fun test_deciTiny_init() {
+        step {
+            val d = 1_000_000_001.deci
+            assertEquals(1_000_000_001.toBigDecimal(), d.toBigDecimal())
+            assertEquals(ERR_VALUE, d.tinyDec.raw)
+        }
+
+        step {
+            val d = (-1L).deci
+            assertEquals("-1", d.toString())
+            assertTrue(isFlagSet(d.mixed, FLAG_NEGATIVE))
+            assertEquals(1, d.tinyDec.raw)
+        }
+
+        val ctx1 = DeciContext.of(scale = 1, roundingMode = HALF_UP, precision = 1)
+        val template = Deci.valueOf("1", ctx1)
+
+        // TinyDec
+        step {
+            val res = template.createFromUnscaledPos(1234, 3, false)!!
+            assertEquals(ERR_VALUE, res.tinyDec.raw)
+            assertEquals("1.2",res.toString())
+        }
+
+        // TinyDec4d
+        step {
+            val res = template.createFromUnscaledPos(12345, 4, false)!!
+            assertEquals(ERR_VALUE, res.tinyDec.raw)
+            assertEquals("1.2",res.toString())
+        }
+    }
+
+    @Test
+    fun test_deciTiny_toInt() {
+        val d = (-1).deci
+        assertEquals(-1, d.toInt())
+        assertEquals(-1L, d.toLong())
+        assertEquals((-1).toShort(), d.toShort())
+        assertEquals((-1).toByte(), d.toByte())
+        assertEquals((-1).toDouble(), d.toDouble())
+        assertEquals((-1).toFloat(), d.toFloat())
     }
 
     @Test
@@ -228,4 +328,18 @@ class DeciTinyTest {
         assertEquals(dec1, dec2, "Decimals are not equal ($dec1 vs $dec2)")
     }
 
+    // step of subtest - block, may reduce variables scope
+    private fun step(testFn: () -> Unit) {
+        testFn()
+    }
+
+    companion object {
+        private const val FLAG_TINY_INIT: Int = 1 shl 26 // have tried to init tinyDec (even if failed)
+        private const val FLAG_TINY_TRIM: Int = 1 shl 27
+        private const val FLAG_BIGD_TRIM: Int = 1 shl 28
+        private const val FLAG_NEGATIVE: Int = 1 shl 29
+        private const val FLAG_TINY_DEC4: Int = 1 shl 30 // tinyDec is TinyDec4d, not TinyDec
+
+        fun isFlagSet( mixed: Int, flag: Int) = mixed and flag != 0
+    }
 }
