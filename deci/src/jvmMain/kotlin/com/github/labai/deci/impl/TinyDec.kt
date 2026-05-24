@@ -64,7 +64,7 @@ internal value class TinyDec(
 ) : ITinyDec<TinyDec> {
     override inline fun pos() = raw ushr 30
     override inline fun unscaled() = raw and TinyUDecMath.MASK_VALUE
-    override fun isZero(): Boolean = unscaled() == 0
+    override inline fun isZero(): Boolean = unscaled() == 0
     override inline fun isErr(): Boolean = raw == ERR_VALUE
     override inline fun isValid(): Boolean = raw != ERR_VALUE
     override fun toString(): String = TinyUDecMath.toString(unscaled(), pos())
@@ -83,7 +83,7 @@ internal value class TinyDec(
 
         fun parseStringOrErr(str: String): TinyDec {
             val pair = TinyUDecMath.parseString(str, MAX_INT_LEN, 0, maxPos, true)
-            if (pair == TWOINT_ERR)
+            if (pair.isErr())
                 return ERR
             return buildTinyOrErr(pair.first(), pair.second())
         }

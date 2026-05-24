@@ -33,16 +33,12 @@ import com.github.labai.deci.impl.TinyDec4d
 import com.github.labai.deci.impl.TinyUDecMath
 import com.github.labai.deci.impl.TinyUDecMath.MAX_INT_LEN
 import com.github.labai.deci.impl.TinyUDecMath.MAX_UNSCALED
-import com.github.labai.deci.impl.TinyUDecMath.TWOINT_ERR
 import com.github.labai.deci.impl.TinyUDecMath.TwoInt
 import java.math.BigDecimal
 import java.math.BigInteger
 import kotlin.math.absoluteValue
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.text.startsWith
-import kotlin.text.substring
-import kotlin.toBigDecimal
 
 /*
  * @author Augustus
@@ -90,7 +86,7 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
         val absStr = if (isNeg) str.substring(1) else str
         val pair = TinyUDecMath.parseString(absStr, MAX_INT_LEN, 0, TinyDec4d.maxPos, true)
         val pos = pair.second()
-        if (pair != TWOINT_ERR && pos <= deciContext.scale)  {
+        if (!pair.isErr() && pos <= deciContext.scale)  {
             val unscaled = pair.first()
             this.decimal = null
             when (pos) {
@@ -120,7 +116,7 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
     actual constructor(int: Int, deciContext: DeciContext) {
         this.initDeciContext(deciContext)
         val tiny = TinyDec.buildTinyOrErr(int.absoluteValue, 0)
-        if (tiny != ERR) {
+        if (tiny.isValid()) {
             this.decimal = null
             this.tinyDec = tiny
             if (int < 0)
@@ -137,7 +133,7 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
         this.initDeciContext(deciContext)
         val absVal = long.absoluteValue // nb. abs(Long.MIN_VALUE) -> Long.MIN_VALUE
         val tiny = if (absVal !in 0..MAX_UNSCALED) ERR else TinyDec.buildTinyOrErr(long.absoluteValue.toInt(), 0)
-        if (tiny != ERR) {
+        if (tiny.isValid()) {
             this.decimal = null
             this.tinyDec = tiny
             if (long < 0)
@@ -316,7 +312,7 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
 
     internal fun plusInternal(other: Deci): Deci {
         if (tinyDec.isValid() && other.tinyDec.isValid()) {
-            val r = addTinySigned(other)
+            val r = addTinySigned(other, negateOther = false)
             if (r != null)
                 return r
         }
@@ -335,9 +331,9 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
 
     internal fun timesInternal(other: Deci): Deci {
         if (tinyDec.isValid() && other.tinyDec.isValid()) {
-            val r = mulDivTinySigned(other) { aval, apos, bval, bpos ->
-                TinyUDecMath.mulOrErr(aval, apos, bval, bpos)
-            }
+            val mulRes = TinyUDecMath.mulOrErr(getTinyUnscaled(), getTinyPos(), other.getTinyUnscaled(), other.getTinyPos())
+            val resultNeg = (isNegative() xor other.isNegative())
+            val r = createFromTwoInt(mulRes, resultNeg)
             if (r != null)
                 return r
         }
@@ -346,9 +342,9 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
 
     internal fun divInternal(other: Deci): Deci {
         if (tinyDec.isValid() && other.tinyDec.isValid()) {
-            val r = mulDivTinySigned(other) { aval, apos, bval, bpos ->
-                TinyUDecMath.tryDivOrErr(aval, apos, bval, bpos)
-            }
+            val divRes = TinyUDecMath.tryDivOrErr(getTinyUnscaled(), getTinyPos(), other.getTinyUnscaled(), other.getTinyPos())
+            val resultNeg = (isNegative() xor other.isNegative())
+            val r = createFromTwoInt(divRes, resultNeg)
             if (r != null)
                 return r
         }
@@ -388,7 +384,7 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
 
     // Signed addition of two tinyDec values, optionally negating the other operand (for subtraction).
     // Returns null if the result overflows TinyUDec range — caller falls back to BigDecimal.
-    private fun addTinySigned(other: Deci, negateOther: Boolean = false): Deci? {
+    private fun addTinySigned(other: Deci, negateOther: Boolean): Deci? {
         val aneg = isNegative()
         val aval = this.getTinyUnscaled()
         val apos = this.getTinyPos()
@@ -408,14 +404,6 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
         }
         val res = TinyUDecMath.subOrErr(bval, bpos, aval, apos)
         return createFromTwoInt(res, bneg)
-    }
-
-    // Signed multiplication/division of two tinyDec values.
-    // Returns null if the result overflows TinyUDec range — caller falls back to BigDecimal.
-    private inline fun mulDivTinySigned(other: Deci, mulDivFn: (Int, Int, Int, Int) -> TwoInt): Deci? {
-        val res = mulDivFn(getTinyUnscaled(), getTinyPos(), other.getTinyUnscaled(), other.getTinyPos())
-        val resultNeg = (isNegative() xor other.isNegative())
-        return createFromTwoInt(res, resultNeg)
     }
 
     // Signed remainder of two tinyDec values.
@@ -480,7 +468,7 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
                 dec = dec.negate()
             }
             val pair = TinyUDecMath.fromBigDecimalUnsigned(dec, TinyDec4d.maxPos)
-            if (pair == TWOINT_ERR)
+            if (pair.isErr())
                 return
             val unscaled = pair.first()
             val pos = pair.second()
@@ -566,7 +554,7 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
         private const val FLAG_BIGD_TRIM: Int = 1 shl 28
         private const val FLAG_NEGATIVE: Int = 1 shl 29
         private const val FLAG_TINY_DEC4: Int = 1 shl 30 // tinyDec is TinyDec4d, not TinyDec
-        private const val FLAG_UNUSED: Int = 1 shl 32 // not for use (first bit, need to review)
+        private const val FLAG_UNUSED: Int = 1 shl 31 // not for use (first bit, need to review)
 
         actual fun valueOf(int: Int): Deci {
             return when (int) {

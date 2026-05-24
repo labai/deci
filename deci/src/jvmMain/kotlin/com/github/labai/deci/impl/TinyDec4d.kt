@@ -27,7 +27,6 @@ import com.github.labai.deci.impl.TinyUDecMath.ERR_VALUE
 import com.github.labai.deci.impl.TinyUDecMath.MAX_INT_LEN
 import com.github.labai.deci.impl.TinyUDecMath.MAX_UNSCALED
 import com.github.labai.deci.impl.TinyUDecMath.POW
-import com.github.labai.deci.impl.TinyUDecMath.TWOINT_ERR
 import com.github.labai.deci.impl.TinyUDecMath.makeDec30Compact
 import java.math.BigDecimal
 
@@ -40,6 +39,7 @@ import java.math.BigDecimal
  *   0.1234567
  *   0.0000001
  *   0.0001
+ *   1.2000
  *   0.12345
  *   12.3456789
  *   12345.6789
@@ -60,7 +60,7 @@ internal value class TinyDec4d (
 ) : ITinyDec<TinyDec4d> {
     override inline fun pos() = (raw ushr 30) + 4
     override inline fun unscaled() = raw and TinyUDecMath.MASK_VALUE
-    override fun isZero(): Boolean = unscaled() == 0
+    override inline fun isZero(): Boolean = unscaled() == 0
     override inline fun isErr(): Boolean = raw == ERR_VALUE
     override inline fun isValid(): Boolean = raw != ERR_VALUE
     override fun toString(): String = TinyUDecMath.toString(unscaled(), pos())
@@ -80,7 +80,7 @@ internal value class TinyDec4d (
 
         fun parseStringOrErr(str: String): TinyDec4d {
             val pair = TinyUDecMath.parseString(str, MAX_INT_LEN, 0, maxPos, true)
-            if (pair == TWOINT_ERR)
+            if (pair.isErr())
                 return ERR
             return buildTiny4dOrErr(pair.first(), pair.second())
         }
