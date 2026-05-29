@@ -11,7 +11,7 @@ import kotlin.time.measureTime
  *
  *
  * Deci
- *  226 - when only tinyInt as back
+ *  220 - when only tinyInt as back
  *  780 - when bigDecimal as back
  * BigDecimal
  *  2630 - if to use setScale(20)
@@ -22,7 +22,7 @@ import kotlin.time.measureTime
  */
 class DeciPerfTest {
 
-    // 234ms
+    // 220ms
     @Disabled
     @Test
     fun test_perf_1_when_allTiny() {
@@ -31,7 +31,7 @@ class DeciPerfTest {
             val perc = 30.deci
             var d = Deci("1")
             for (i in 1..times) {
-                d = (d + "12.25".deci * 12 + "1.200".deci)
+                d = (d + "12.25".deci * 12 - "-1.200".deci)
                 d += Deci("1.2") * (i % 1100) * perc / 100
                 d -= (i.deci / 10) % 600
                 if (d > 500.deci)
@@ -42,7 +42,7 @@ class DeciPerfTest {
         runTestFn(testFn)
     }
 
-    // time=780ms
+    // time=770ms
     @Disabled
     @Test
     fun test_perf_3_deci_when_bigDec() {
@@ -51,7 +51,7 @@ class DeciPerfTest {
             val perc = 30.deci
             var d = Deci("1")
             for (i in 1..times) {
-                d = (d + "12.0025".deci * 12 + "1.000200".deci)
+                d = (d + "12.0025".deci * 12 - "-1.000200".deci)
                 val dd = "1.0002".deci * i * perc / 100
                 d += dd
                 d += (i.deci / 10) % 600
@@ -74,7 +74,7 @@ class DeciPerfTest {
             val perc = 30.toBigDecimal()
             var d = "1".toBigDecimal().setScale(20)
             for (i in 1..times) {
-                d = (d + "12.0025".toBigDecimal() * 12.toBigDecimal() + "1.000200".toBigDecimal())
+                d = (d + "12.0025".toBigDecimal() * 12.toBigDecimal() - "-1.000200".toBigDecimal())
                 val dd = "1.0002".toBigDecimal().setScale(20) * i.toBigDecimal() * perc / 100.toBigDecimal()
                 d += dd
                 d += (i.toBigDecimal().setScale(20) / 10.toBigDecimal()) % 600.toBigDecimal()

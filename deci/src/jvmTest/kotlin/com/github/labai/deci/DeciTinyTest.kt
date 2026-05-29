@@ -263,14 +263,14 @@ class DeciTinyTest {
         step {
             val res = template.createFromUnscaledPos(1234, 3, false)!!
             assertEquals(ERR_VALUE, res.tinyDec.raw)
-            assertEquals("1.2",res.toString())
+            assertEquals("1.2", res.toString())
         }
 
         // TinyDec4d
         step {
             val res = template.createFromUnscaledPos(12345, 4, false)!!
             assertEquals(ERR_VALUE, res.tinyDec.raw)
-            assertEquals("1.2",res.toString())
+            assertEquals("1.2", res.toString())
         }
     }
 

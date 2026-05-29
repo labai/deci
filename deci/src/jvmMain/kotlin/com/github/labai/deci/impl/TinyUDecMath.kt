@@ -64,6 +64,9 @@ internal object TinyUDecMath {
     val TWOINT_ERR = TwoInt(-1L)
     val TWOINT_ZERO = TwoInt(0L)
 
+    private val ones100 = "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789".toCharArray()
+    private val tens100 = "0000000000111111111122222222223333333333444444444455555555556666666666777777777788888888889999999999".toCharArray()
+
     // to avoid creation of objects, will use long and put there 2 ints
     // this version for internal usage only!
     @Suppress("NOTHING_TO_INLINE")
@@ -112,14 +115,16 @@ internal object TinyUDecMath {
     // no check, for private usage
     internal fun makeDec30Compact(unscaled: Int, pos: Int): Int {
         var res = unscaled
-        var pos = pos
-        while (pos > 0) {
-            if (res % 10 != 0)
-                break
-            res /= 10
-            pos--
+        var p = pos
+        if (res and 1 == 0) {
+            while (p > 0) {
+                if (res % 10 != 0)
+                    break
+                res /= 10
+                p--
+            }
         }
-        return makeDec30(res, pos)
+        return makeDec30(res, p)
     }
 
     // integer part
@@ -152,6 +157,9 @@ internal object TinyUDecMath {
     // simplified version, for positive only, no check for overflow
     private fun needIncrement(roundingMode: RoundingMode, divisor: Int, qt: Int, rem: Int): Boolean {
         val fractHalfCmp = (rem shl 1).compareTo(divisor) // rem*2 < divisor --> less than 0.5
+
+        if (roundingMode == RoundingMode.HALF_UP) // HALF_UP is default
+            return fractHalfCmp >= 0
 
         return when (roundingMode) {
             RoundingMode.UP, RoundingMode.CEILING -> true
@@ -336,9 +344,19 @@ internal object TinyUDecMath {
         if (d == 0) {
             buf[--idx] = '0'
         } else {
-            while (d > 0) {
-                buf[--idx] = '0' + (d % 10)
-                d /= 10
+            // small optimization - instead of divide 2x by 10, we're dividing once by 100
+            while (true) {
+                if (d < 10) {
+                    buf[--idx] = ones100[d]
+                    break
+                } else {
+                    val h = d % 100
+                    d /= 100
+                    buf[--idx] = ones100[h]
+                    buf[--idx] = tens100[h]
+                    if (d == 0)
+                        break
+                }
             }
         }
 
@@ -377,7 +395,7 @@ internal object TinyUDecMath {
 
         val start = when (str[0]) {
             '+' -> 1
-            '-' -> return errOrRaise(silent) { "Only positive numbers are allowed." }
+            '-' -> 1 // will ignore negative sign here
             else -> 0
         }
 
@@ -385,13 +403,8 @@ internal object TinyUDecMath {
         var digitCount = 0
         var dot = -1
         var trailingZeros = 0
-
         for (i in start until str.length) {
             when (val c = str[i]) {
-                '.' -> {
-                    if (dot >= 0) return errOrRaise(silent) { "Invalid number format: $str" }
-                    dot = digitCount // position in digit sequence, not in string
-                }
                 in '0'..'9' -> {
                     if (dot >= 0) {
                         if (c == '0') {
@@ -413,6 +426,10 @@ internal object TinyUDecMath {
                         if (digitCount > limitDigits) return errOrRaise(silent) { "String value too long: $str" }
                     }
                 }
+                '.' -> {
+                    if (dot >= 0) return errOrRaise(silent) { "Invalid number format: $str" }
+                    dot = digitCount // position in digit sequence, not in string
+                }
                 else -> return errOrRaise(silent) { "Invalid character '$c' in: $str" }
             }
         }
@@ -427,10 +444,10 @@ internal object TinyUDecMath {
         return TwoInt.toTwoInt(value, pos)
     }
 
-    fun fromBigDecimalUnsigned(dec: BigDecimal, maxPos: Int,): TwoInt {
-        when (dec.signum()) {
-            -1 -> return TWOINT_ERR
-            0 -> return TWOINT_ZERO
+    // result unsigned, i.e. sign is lost
+    fun fromBigDecimalUnsigned(dec: BigDecimal, maxPos: Int): TwoInt {
+        if (dec.signum() == 0) {
+            return TWOINT_ZERO
         }
         if (dec.precision() > MAX_INT_LEN) {
             // may try to trimTrailingZeros, but that will create new objects, and small chance for success won't pay off (?)

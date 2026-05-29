@@ -26,7 +26,6 @@ package com.github.labai.deci.impl
 import com.github.labai.deci.impl.TinyUDecMath.ERR_VALUE
 import com.github.labai.deci.impl.TinyUDecMath.MAX_INT_LEN
 import com.github.labai.deci.impl.TinyUDecMath.MAX_UNSCALED
-import com.github.labai.deci.impl.TinyUDecMath.TWOINT_ERR
 import com.github.labai.deci.impl.TinyUDecMath.makeDec30
 import com.github.labai.deci.impl.TinyUDecMath.makeDec30Compact
 import java.math.BigDecimal

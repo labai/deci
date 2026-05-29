@@ -94,6 +94,7 @@ class TinyDec4dTest {
         ".00010,      1,      4",
         "+.00010,     1,      4",
         "10.,         100000, 4",
+        "-3,          30000,  4", // will ignore minus (it should be handled separately)
     )
     fun test_d4d_parseString_correct(str: String, expectedUnscaled: Int, expectedPos: Int) {
         val dec = TinyDec4d.parseString(str)
@@ -107,7 +108,6 @@ class TinyDec4dTest {
 
     @ParameterizedTest
     @CsvSource(
-        "-3",
         "++3",
         "1.0.0",
         "1..0",
@@ -222,12 +222,12 @@ class TinyDec4dTest {
         "1.2e-2,      0.012",
         "5e4,         50000",
         "50000.0000,   50000",
+        "-1,          1", // unsigned, i.e. sign is lost
         // no trim trailing zeros
         "0.100000000, ERR",
         "50000.00000, ERR",
         "9.9e4,       99000",
         // overflow
-        "-1,          ERR",
         "1e5,         ERR",
         "0.00000001,  ERR",
     )

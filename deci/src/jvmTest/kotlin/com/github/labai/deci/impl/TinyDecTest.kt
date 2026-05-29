@@ -77,6 +77,7 @@ class TinyDecTest {
     @CsvSource(
         "3,     3,   0",
         "+3,    3,   0",
+        "-3,    3,   0", // ignore minus in this method, it must be handled separately
         "0,     0,   0",
         "+0,    0,   0",
         "0.0,   0,   0",
@@ -103,7 +104,6 @@ class TinyDecTest {
 
     @ParameterizedTest
     @CsvSource(
-        "-3",
         "++3",
         "1.0.0",
         "1..0",
@@ -136,6 +136,7 @@ class TinyDecTest {
         "10000000, 10000000",
         "10.0,     10",
         "10001.001,10001.001",
+        "100001.001,100001.001",
     )
     fun test_toString(decStr: String, expectedStr: String) {
         val dec = dec(decStr)
@@ -476,12 +477,12 @@ class TinyDecTest {
         "1.2e-2,      0.012",
         "5e8,         500000000",
         "500000000,   500000000",
+        "-1,          1", // unsigned, i.e. sign is lost
         // no trim trailing zeros
         "0.100000000, ERR",
         "500000000.0, ERR",
         "9.9e8,       990000000",
         // overflow
-        "-1,          ERR",
         "1e9,         ERR",
         "0.0001,      ERR",
     )

@@ -37,7 +37,7 @@ import kotlin.time.measureTime
     create(min) 4.0     1.4     - some jvm optimization?
     add         1.3     1.4
     parse       287     373
-    toString    228     585
+    toString    215     585
     round       55      278
 */
 
@@ -127,7 +127,7 @@ class TinyDecPerfTest {
         assertTrue(n > 0)
     }
 
-    // parse#3 tiny=287ms bdec=373ms
+    // parse#3 tiny=286ms bdec=363ms
     @Disabled
     @Test
     fun test_perf_parseString() {
@@ -155,7 +155,7 @@ class TinyDecPerfTest {
         runCompareTest("parse", tinyFn, bdecFn)
     }
 
-    // toString#3 tiny=240ms bdec=583ms
+    // toString#3 tiny=215ms bdec=545ms
     @Disabled
     @Test
     fun test_perf_toString() {
@@ -184,7 +184,7 @@ class TinyDecPerfTest {
         runCompareTest("toString", tinyFn, bdecFn)
     }
 
-    // round#3 tiny=164ms bdec=834ms
+    // round#3 tiny=286ms bdec=834ms
     @Disabled
     @Test
     fun test_perf_round() {
