@@ -1,8 +1,11 @@
 package com.github.labai.deci.impl
 
+import com.github.labai.deci.Deci
+import com.github.labai.deci.DeciContext
 import com.github.labai.deci.RoundingMode
 import com.github.labai.deci.impl.TinyUDecMath.TWOINT_ERR
 import com.github.labai.deci.impl.TinyUDecMath.TwoInt
+import java.math.BigDecimal
 
 /**
  * @author Augustus
@@ -25,3 +28,36 @@ internal fun TinyDec.isEqual(other: TinyDec): Boolean = TinyUDecMath.isEqual(thi
 internal fun TinyDec.isEqual(other: TinyDec4d): Boolean = TinyUDecMath.isEqual(this.unscaled(), this.pos(), other.unscaled(), other.pos())
 internal fun TinyDec.compareTo(other: TinyDec) = TinyUDecMath.compare(this.unscaled(), this.pos(), other.unscaled(), other.pos())
 internal fun TinyDec.compareTo(other: TinyDec4d) = TinyUDecMath.compare(this.unscaled(), this.pos(), other.unscaled(), other.pos())
+
+// access private methods/fields - for testing only
+
+internal fun Deci.priv_createFromUnscaledPos(unscaled: Int, pos: Int, neg: Boolean, deciCtx: DeciContext) : Deci? {
+    val method = Deci::class.java.getDeclaredMethod("createFromUnscaledPos", Int::class.java, Int::class.java, Boolean::class.java, DeciContext::class.java)
+    method.isAccessible = true
+    return method.invoke(this, unscaled, pos, neg, deciCtx) as Deci?
+}
+
+internal fun Deci.priv_calcDivScale(dec: BigDecimal) : Int {
+    val method = Deci::class.java.getDeclaredMethod("calcDivScale", BigDecimal::class.java)
+    method.isAccessible = true
+    return method.invoke(this, dec) as Int
+}
+
+internal fun Deci.priv_tryInitTinyDec() {
+    val method = Deci::class.java.getDeclaredMethod("tryInitTinyDec")
+    method.isAccessible = true
+    method.invoke(this)
+}
+
+internal fun Deci.priv_decimal(): BigDecimal? {
+    val field = Deci::class.java.getDeclaredField("decimal")
+    field.isAccessible = true
+    return field.get(this) as BigDecimal?
+}
+
+internal fun Deci.priv_tinyDec(): TinyDec {
+    val field = Deci::class.java.getDeclaredField("tinyDec")
+    field.isAccessible = true
+    val int = field.get(this) as Int
+    return TinyDec(int)
+}

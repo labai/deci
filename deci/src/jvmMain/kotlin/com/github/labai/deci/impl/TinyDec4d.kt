@@ -74,12 +74,12 @@ internal value class TinyDec4d (
         internal const val maxPos = 7
 
         fun parseString(str: String): TinyDec4d {
-            val pair = TinyUDecMath.parseString(str, MAX_INT_LEN, 0, maxPos, false)
+            val pair = TinyUDecMath.parseString(str, MAX_INT_LEN, maxPos, false)
             return buildTiny4d(pair.first(), pair.second())
         }
 
         fun parseStringOrErr(str: String): TinyDec4d {
-            val pair = TinyUDecMath.parseString(str, MAX_INT_LEN, 0, maxPos, true)
+            val pair = TinyUDecMath.parseString(str, MAX_INT_LEN, maxPos, true)
             if (pair.isErr())
                 return ERR
             return buildTiny4dOrErr(pair.first(), pair.second())

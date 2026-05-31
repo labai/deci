@@ -127,7 +127,7 @@ actual class Deci : Number, Comparable<Deci> {
     internal fun remInternal(other: DecimalJs): Deci = Deci(decimal.modulo(other), deciContext)
 
     actual companion object {
-        internal actual val originalDefaultDeciContext: DeciContext = DeciContext.of(20, RoundingMode.HALF_UP, 20)
+        internal val originalDefaultDeciContext: DeciContext = DeciContext.of(20, RoundingMode.HALF_UP, 20)
         actual var defaultDeciContext: DeciContext = originalDefaultDeciContext
         actual val ZERO: Deci = Deci("0", defaultDeciContext)
 

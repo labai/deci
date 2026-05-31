@@ -387,24 +387,43 @@ internal object TinyUDecMath {
         return TWOINT_ERR
     }
 
-    // as we don't know yet which of TinyDec will use (it depends on number of decimals),
-    // we return result as bigger number (stored in Long) and then caller will decide how to use it.
-    // but still we limit number of digits (9) and range of decimals
-    internal fun parseString(str: String, limitDigits: Int, minPos: Int, maxPos: Int, silent: Boolean): TwoInt {
+    internal fun parseString(str: String, maxDigits: Int, maxPos: Int, silent: Boolean): TwoInt {
         if (str.isEmpty()) return errOrRaise(silent) { "String is empty" }
+        return parseStringOrCharArray({ str[it] }, { str }, 0, str.length, maxDigits, maxPos, silent)
+    }
 
-        val start = when (str[0]) {
-            '+' -> 1
-            '-' -> 1 // will ignore negative sign here
-            else -> 0
+    internal fun parseCharArray(chars: CharArray, offset: Int, length: Int, maxDigits: Int, maxPos: Int, silent: Boolean): TwoInt {
+        if (length == 0 || chars.size < offset + length)
+            return errOrRaise(silent) { "String buffer is invalid or empty" }
+        val strForLog = { String(chars.sliceArray(offset until offset + length)) }
+        return parseStringOrCharArray({ chars[it] }, strForLog, offset, length, maxDigits, maxPos, silent)
+    }
+
+    // Parse function for String and CharArray.
+    // Ignores negative sign.
+    // As we don't know yet which of TinyDec will use (it depends on number of decimals),
+    // we return result as bigger number (stored in Long) and then caller will decide how to use it.
+    private inline fun parseStringOrCharArray(
+        charGetFn: (Int) -> Char, // get char at position
+        strForLog: () -> String,  // just for error message
+        offset: Int,              // starting from position in array (0 for String)
+        length: Int,              // length of token (length of String)
+        maxDigits: Int,           // max digits (9 for tinyDec)
+        maxPos: Int,              // max decimals after dot
+        silent: Boolean           // return ERR if true, throws an exception if false
+    ): TwoInt {
+
+        val start = when (charGetFn(offset)) {
+            '-', '+' -> offset + 1 // will ignore negative sign here
+            else -> offset
         }
-
+        val endExcl = offset + length
         var value = 0
         var digitCount = 0
         var dot = -1
         var trailingZeros = 0
-        for (i in start until str.length) {
-            when (val c = str[i]) {
+        for (i in start until endExcl) {
+            when (val c = charGetFn(i)) {
                 in '0'..'9' -> {
                     if (dot >= 0) {
                         if (c == '0') {
@@ -412,34 +431,31 @@ internal object TinyUDecMath {
                         } else if (trailingZeros == 0) {
                             value = value * 10 + (c - '0')
                             digitCount++
-                            if (digitCount > limitDigits) return errOrRaise(silent) { "String value too long: $str" }
+                            if (digitCount > maxDigits) return errOrRaise(silent) { "String value too long: ${strForLog()}" }
                         } else { // reset, flush deferred zeros and add current digit
                             trailingZeros++
                             digitCount += trailingZeros
-                            if (digitCount > limitDigits) return errOrRaise(silent) { "String value too long: $str" }
+                            if (digitCount > maxDigits) return errOrRaise(silent) { "String value too long: ${strForLog()}" }
                             value = value * POW[trailingZeros] + (c - '0')
                             trailingZeros = 0
                         }
                     } else {
                         value = value * 10 + (c - '0')
                         digitCount++
-                        if (digitCount > limitDigits) return errOrRaise(silent) { "String value too long: $str" }
+                        if (digitCount > maxDigits) return errOrRaise(silent) { "String value too long: ${strForLog()}" }
                     }
                 }
                 '.' -> {
-                    if (dot >= 0) return errOrRaise(silent) { "Invalid number format: $str" }
+                    if (dot >= 0) return errOrRaise(silent) { "Invalid number format: ${strForLog()}" }
                     dot = digitCount // position in digit sequence, not in string
                 }
-                else -> return errOrRaise(silent) { "Invalid character '$c' in: $str" }
+                else -> return errOrRaise(silent) { "Invalid character '$c' in: ${strForLog()}" }
             }
         }
 
         val pos = if (dot < 0) 0 else maxOf(digitCount - dot, 0)
-
-        if (pos < minPos)
-            return errOrRaise(silent) { "Too small number of decimals: $str" }
         if (pos > maxPos)
-            return errOrRaise(silent) { "Too big number of decimals: $str" }
+            return errOrRaise(silent) { "Too big number of decimals: ${strForLog()}" }
 
         return TwoInt.toTwoInt(value, pos)
     }

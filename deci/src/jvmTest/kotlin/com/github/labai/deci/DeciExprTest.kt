@@ -217,7 +217,7 @@ class DeciExprTest {
         val dec = deciExpr(ctx4) { num1 * "1e10".deci }
         assertCtxEquals(ctx4, dec!!.deciContext)
         // assertEquals("10123456789.0123", dec.toString()) // would be such if to keep original from num1
-        assertEquals("10123000000", dec.toString())
+        assertEquals("10123000000", dec.toString()) // first element of formula also applied with ctx4
     }
 
     @Test

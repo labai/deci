@@ -28,6 +28,7 @@ import com.github.labai.deci.impl.TinyUDecMath.TWOINT_ERR
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import kotlin.test.Test
 import kotlin.test.assertTrue
 
 class TinyUDecMathTest {
@@ -140,9 +141,21 @@ class TinyUDecMathTest {
         "10000000.1, 100000001, 1",
     )
     fun test_parseString(str: String, expUnscaled: Int, expPos: Int) {
-        val pair = TinyUDecMath.parseString(str, 9, 0, 7, false)
+        var pair = TinyUDecMath.parseString(str, 9, 7, false)
         assertEquals(expUnscaled, pair.first())
         assertEquals(expPos, pair.second())
+
+        pair = TinyUDecMath.parseCharArray(str.toCharArray(), 0, str.length, 9, 7, false)
+        assertEquals(expUnscaled, pair.first())
+        assertEquals(expPos, pair.second())
+    }
+
+    @Test
+    fun test_parseCharArr_offset() {
+        val ca = "xx-12345.6xx".toCharArray()
+        val pair = TinyUDecMath.parseCharArray(ca, 2, 8, 9, 7, false)
+        assertEquals(123456, pair.first())
+        assertEquals(1, pair.second())
     }
 
     //

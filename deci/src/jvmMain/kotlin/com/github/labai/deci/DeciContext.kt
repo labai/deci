@@ -110,14 +110,14 @@ internal fun DeciContext.isDeciCtxEqual(other: DeciContext): Boolean {
 
     val mixed1 = when (this) {
         is DeciContextImpl -> this.mixed
-        is Deci -> this.mixed
+        is Deci -> this.getMixed()
         else -> 0
     }
 
     if (mixed1 != 0) {
         val mixed2 = when (other) {
             is DeciContextImpl -> other.mixed
-            is Deci -> other.mixed
+            is Deci -> other.getMixed()
             else -> 0
         }
         if (mixed2 != 0)

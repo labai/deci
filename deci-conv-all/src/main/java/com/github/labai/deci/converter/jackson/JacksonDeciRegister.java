@@ -38,7 +38,7 @@ public class JacksonDeciRegister {
 
 		@Override
 		public Deci deserialize(JsonParser jp, DeserializationContext ctx) throws IOException, JsonProcessingException {
-			return new Deci(jp.readValueAs(String.class));
+			return new Deci(jp.getTextCharacters(), jp.getTextOffset(), jp.getTextLength());
 		}
 	}
 

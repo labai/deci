@@ -110,9 +110,6 @@ expect class Deci : Number, Comparable<Deci> {
     companion object {
         val ZERO: Deci
 
-        /** original default Deci context (in case want to restore) */
-        internal val originalDefaultDeciContext: DeciContext
-
         /** default Deci context - will be used for creating new Deci; can be changed for project globally */
         var defaultDeciContext: DeciContext
 
