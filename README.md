@@ -125,5 +125,13 @@ sourceSets {
 ```
 </details>
 
+## Branches
+
+There are currently three active branches:
+- **main** — a simple JVM version. Simple, stable, used in production.
+- **multi** — a multiplatform version adapted for JVM, JavaScript, and iOS.
+- **tinydec-d4** — a multiplatform version with additional optimizations 
+that reduce memory usage and improve performance by using *TinyDec* for small numbers.
+
 ## deci.kt
 [more info](../../tree/main/deci) 
