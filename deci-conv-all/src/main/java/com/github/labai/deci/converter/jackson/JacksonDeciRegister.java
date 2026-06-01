@@ -1,7 +1,6 @@
 package com.github.labai.deci.converter.jackson;
 
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
@@ -37,8 +36,8 @@ public class JacksonDeciRegister {
 		}
 
 		@Override
-		public Deci deserialize(JsonParser jp, DeserializationContext ctx) throws IOException, JsonProcessingException {
-			return new Deci(jp.readValueAs(String.class));
+		public Deci deserialize(JsonParser jp, DeserializationContext ctx) throws IOException {
+			return new Deci(jp.getDecimalValue());
 		}
 	}
 
