@@ -25,7 +25,7 @@ Additional functions:
 ## What it isn't
 Deci does not reinvent math algorithms - at its core, it reuses Java’s `BigDecimal`.
 
-Remark: there is also an optimized Deci implementation in the `tinydec-d4` branch, where small numbers are stored using an `Int`. 
+Remark: there is also an optimized Deci implementation in the `tinydec` branch, where small numbers are stored using an `Int`. 
 This can reduce memory usage and improve performance (by up to 2–3x) in most real-world scenarios. This version has not been released yet.
 
 ## Math in code
@@ -128,9 +128,9 @@ sourceSets {
 ## Branches
 
 There are currently three active branches:
-- **main** — a simple JVM version. Simple, stable, used in production.
-- **multi** — a multiplatform version adapted for JVM, JavaScript, and iOS.
-- **tinydec-d4** — a multiplatform version with additional optimizations 
+- **jvm-pom** — a simple JVM version with maven. Simple, stable, used in production.
+- **main** — a multiplatform version adapted for JVM, JavaScript, and iOS.
+- **tinydec** — a multiplatform version with additional optimizations 
 that reduce memory usage and improve performance by using *TinyDec* for small numbers.
 
 ## deci.kt
