@@ -1,6 +1,7 @@
 package com.github.labai.deci.impl
 
 import com.github.labai.deci.Deci
+import com.github.labai.deci.Deci.CtxMixed
 import com.github.labai.deci.DeciContext
 import com.github.labai.deci.RoundingMode
 import com.github.labai.deci.impl.TinyUDecMath.TWOINT_ERR
@@ -31,10 +32,10 @@ internal fun TinyDec.compareTo(other: TinyDec4d) = TinyUDecMath.compare(this.uns
 
 // access private methods/fields - for testing only
 
-internal fun Deci.priv_createFromUnscaledPos(unscaled: Int, pos: Int, neg: Boolean, deciCtx: DeciContext) : Deci? {
-    val method = Deci::class.java.getDeclaredMethod("createFromUnscaledPos", Int::class.java, Int::class.java, Boolean::class.java, DeciContext::class.java)
+internal fun Deci.priv_createFromUnscaledPos(unscaled: Int, pos: Int, neg: Boolean, deciCtx: CtxMixed) : Deci? {
+    val method = Deci::class.java.getDeclaredMethod("createFromUnscaledPos", Int::class.java, Int::class.java, Boolean::class.java, Int::class.java)
     method.isAccessible = true
-    return method.invoke(this, unscaled, pos, neg, deciCtx) as Deci?
+    return method.invoke(this, unscaled, pos, neg, deciCtx.raw) as Deci?
 }
 
 internal fun Deci.priv_calcDivScale(dec: BigDecimal) : Int {

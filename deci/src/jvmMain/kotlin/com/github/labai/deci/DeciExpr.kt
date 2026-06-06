@@ -23,6 +23,7 @@ SOFTWARE.
 */
 package com.github.labai.deci
 
+import com.github.labai.deci.Deci.CtxMixed
 import java.math.BigDecimal
 
 /*
@@ -35,36 +36,39 @@ import java.math.BigDecimal
 actual class DeciExpr {
     actual val deciContext: DeciContext
 
+    private val mixed: CtxMixed
+
     actual constructor(deciContext: DeciContext) {
         this.deciContext = deciContext
+        this.mixed = CtxMixed(DeciContextImpl.convDeciCtxValue(deciContext))
     }
     actual constructor() : this(Deci.defaultDeciContext)
 
     actual operator fun Deci?.unaryMinus(): Deci? = this?.unaryMinus()
 
-    actual operator fun Deci?.plus(other: Deci?): Deci? = if (this == null || other == null) null else this.deci.plusInternal(other, this@DeciExpr.deciContext)
-    actual operator fun Deci?.minus(other: Deci?): Deci? = if (this == null || other == null) null else this.deci.minusInternal(other, this@DeciExpr.deciContext)
-    actual operator fun Deci?.times(other: Deci?): Deci? = if (this == null || other == null) null else this.deci.timesInternal(other, this@DeciExpr.deciContext)
-    actual operator fun Deci?.div(other: Deci?): Deci? = if (this == null || other == null) null else this.deci.divInternal(other, this@DeciExpr.deciContext)
-    actual operator fun Deci?.rem(other: Deci?): Deci? = if (this == null || other == null) null else this.deci.remInternal(other, this@DeciExpr.deciContext)
+    actual operator fun Deci?.plus(other: Deci?): Deci? = if (this == null || other == null) null else this.deci.plusInternal(other, this@DeciExpr.mixed)
+    actual operator fun Deci?.minus(other: Deci?): Deci? = if (this == null || other == null) null else this.deci.minusInternal(other, this@DeciExpr.mixed)
+    actual operator fun Deci?.times(other: Deci?): Deci? = if (this == null || other == null) null else this.deci.timesInternal(other, this@DeciExpr.mixed)
+    actual operator fun Deci?.div(other: Deci?): Deci? = if (this == null || other == null) null else this.deci.divInternal(other, this@DeciExpr.mixed)
+    actual operator fun Deci?.rem(other: Deci?): Deci? = if (this == null || other == null) null else this.deci.remInternal(other, this@DeciExpr.mixed)
 
-    actual operator fun Deci?.plus(other: Int?): Deci? = if (this == null || other == null) null else this.deci.plusInternal(other.deci, this@DeciExpr.deciContext)
-    actual operator fun Deci?.minus(other: Int?): Deci? = if (this == null || other == null) null else this.deci.minusInternal(other.deci, this@DeciExpr.deciContext)
-    actual operator fun Deci?.times(other: Int?): Deci? = if (this == null || other == null) null else this.deci.timesInternal(other.deci, this@DeciExpr.deciContext)
-    actual operator fun Deci?.div(other: Int?): Deci? = if (this == null || other == null) null else this.deci.divInternal(other.deci, this@DeciExpr.deciContext)
-    actual operator fun Deci?.rem(other: Int?): Deci? = if (this == null || other == null) null else this.deci.remInternal(other.deci, this@DeciExpr.deciContext)
+    actual operator fun Deci?.plus(other: Int?): Deci? = if (this == null || other == null) null else this.deci.plusInternal(other.deci, this@DeciExpr.mixed)
+    actual operator fun Deci?.minus(other: Int?): Deci? = if (this == null || other == null) null else this.deci.minusInternal(other.deci, this@DeciExpr.mixed)
+    actual operator fun Deci?.times(other: Int?): Deci? = if (this == null || other == null) null else this.deci.timesInternal(other.deci, this@DeciExpr.mixed)
+    actual operator fun Deci?.div(other: Int?): Deci? = if (this == null || other == null) null else this.deci.divInternal(other.deci, this@DeciExpr.mixed)
+    actual operator fun Deci?.rem(other: Int?): Deci? = if (this == null || other == null) null else this.deci.remInternal(other.deci, this@DeciExpr.mixed)
 
-    actual operator fun Deci?.plus(other: Long?): Deci? = if (this == null || other == null) null else this.deci.plusInternal(other.deci, this@DeciExpr.deciContext)
-    actual operator fun Deci?.minus(other: Long?): Deci? = if (this == null || other == null) null else this.deci.minusInternal(other.deci, this@DeciExpr.deciContext)
-    actual operator fun Deci?.times(other: Long?): Deci? = if (this == null || other == null) null else this.deci.timesInternal(other.deci, this@DeciExpr.deciContext)
-    actual operator fun Deci?.div(other: Long?): Deci? = if (this == null || other == null) null else this.deci.divInternal(other.deci, this@DeciExpr.deciContext)
-    actual operator fun Deci?.rem(other: Long?): Deci? = if (this == null || other == null) null else this.deci.remInternal(other.deci, this@DeciExpr.deciContext)
+    actual operator fun Deci?.plus(other: Long?): Deci? = if (this == null || other == null) null else this.deci.plusInternal(other.deci, this@DeciExpr.mixed)
+    actual operator fun Deci?.minus(other: Long?): Deci? = if (this == null || other == null) null else this.deci.minusInternal(other.deci, this@DeciExpr.mixed)
+    actual operator fun Deci?.times(other: Long?): Deci? = if (this == null || other == null) null else this.deci.timesInternal(other.deci, this@DeciExpr.mixed)
+    actual operator fun Deci?.div(other: Long?): Deci? = if (this == null || other == null) null else this.deci.divInternal(other.deci, this@DeciExpr.mixed)
+    actual operator fun Deci?.rem(other: Long?): Deci? = if (this == null || other == null) null else this.deci.remInternal(other.deci, this@DeciExpr.mixed)
 
-    operator fun Deci?.plus(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.deci.plusInternal(other.deci, this@DeciExpr.deciContext)
-    operator fun Deci?.minus(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.deci.minusInternal(other.deci, this@DeciExpr.deciContext)
-    operator fun Deci?.times(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.deci.timesInternal(other.deci, this@DeciExpr.deciContext)
-    operator fun Deci?.div(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.deci.divInternal(other.deci, this@DeciExpr.deciContext)
-    operator fun Deci?.rem(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.deci.remInternal(other.deci, this@DeciExpr.deciContext)
+    operator fun Deci?.plus(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.deci.plusInternal(other.deci, this@DeciExpr.mixed)
+    operator fun Deci?.minus(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.deci.minusInternal(other.deci, this@DeciExpr.mixed)
+    operator fun Deci?.times(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.deci.timesInternal(other.deci, this@DeciExpr.mixed)
+    operator fun Deci?.div(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.deci.divInternal(other.deci, this@DeciExpr.mixed)
+    operator fun Deci?.rem(other: BigDecimal?): Deci? = if (this == null || other == null) null else this.deci.remInternal(other.deci, this@DeciExpr.mixed)
 
     actual operator fun Int?.unaryMinus(): Deci? = this?.deci.unaryMinus()
 

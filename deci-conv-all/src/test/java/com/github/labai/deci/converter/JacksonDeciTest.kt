@@ -61,7 +61,7 @@ class JacksonDeciTest {
         val d = Data1()
         d.deci = Deci("-1100100100.00000001")
         d.str = "abra"
-        d.deci!!.precision
+        d.deci!!
         val json = objectMapper.writeValueAsString(d)
         println(json)
         assertEquals("""{"deci":-1100100100.00000001,"str":"abra"}""", json)

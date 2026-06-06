@@ -40,6 +40,8 @@ import kotlin.math.absoluteValue
 import kotlin.math.max
 import kotlin.math.min
 
+import java.math.RoundingMode as JavaRoundingMode
+
 /*
  * @author Augustus
  *   created on 2020.11.18
@@ -53,18 +55,17 @@ import kotlin.math.min
  * For DeciContext also use part of integer (25 bits), other few bits are used as flags in Deci,
  *
  *
- *
 */
-actual class Deci : Number, Comparable<Deci>, DeciContext {
+actual class Deci : Number, Comparable<Deci> {
 
-    actual val deciContext: DeciContext
-        inline get() = this
+    internal actual val deciContext: DeciContext
+        get() = if (mixed.isDeciCtxEqual(defaultDeciContext)) defaultDeciContext else mixed.getAsDeciContext()
 
     private var decimal: BigDecimal? = null
     // 'tinyDec' may contain TinyDec (0..3 decimals) or TinyDec4d (4..7 decimals). The flag FLAG_TINY_DEC4 indicates which one is used
     private var tinyDec: TinyDec = ERR
     // 'mixed' contains: a) deciContext (25 bits); b) flags
-    private var mixed: Int = 0
+    private var mixed: CtxMixed = MIXED_NOTINIT
 
     @JvmSynthetic
     internal fun getMixed() = mixed
@@ -78,6 +79,10 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
         this.decimal = applyDeciContext(decimal, deciContext)
     }
     constructor(decimal: BigDecimal) : this(decimal, defaultDeciContext)
+    private constructor(decimal: BigDecimal, ctxMix: CtxMixed) {
+        this.initDeciContext(ctxMix)
+        this.decimal = applyDeciContext(decimal, ctxMix)
+    }
 
     // String
     actual constructor(str: String, deciContext: DeciContext) {
@@ -96,18 +101,18 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
     actual constructor(str: String) : this(str, defaultDeciContext)
 
     // CharArray
-    constructor(chars: CharArray, offset: Int, length: Int, deciContext: DeciContext) {
-        this.initDeciContext(deciContext)
+    constructor(chars: CharArray, offset: Int, length: Int, deciCtx: DeciContext) {
+        this.initDeciContext(deciCtx)
         chars[offset]
         val isNeg = (chars[offset] == '-')
         val pair = TinyUDecMath.parseCharArray(chars, offset, length, MAX_INT_LEN, TinyDec4d.maxPos, true)
         val pos = pair.second()
-        if (!pair.isErr() && pos <= deciContext.scale)  {
+        if (!pair.isErr() && pos <= deciCtx.scale)  {
             assignTiny(pair.first(), pos, isNeg)
             setFlagOn(FLAG_TINY_TRIM)
         } else {
             val bd = BigDecimal(chars, offset, length)
-            this.decimal = applyDeciContext(bd, deciContext)
+            this.decimal = applyDeciContext(bd, deciCtx)
             setFlagOn(FLAG_TINY_INIT)
         }
     }
@@ -165,9 +170,10 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
     actual constructor(long: Long) : this(long, defaultDeciContext)
 
     // TinyDec
-    private constructor(tinyDec: TinyDec, tinyNegative: Boolean, deciContext: DeciContext) {
-        this.initDeciContext(deciContext)
-        if (tinyDec.pos() <= deciContext.scale) {
+    private constructor(tinyDec: TinyDec, tinyNegative: Boolean, ctxMix: CtxMixed) {
+        this.initDeciContext(ctxMix)
+
+        if (tinyDec.pos() <= ctxMix.scale()) {
             this.decimal = null
             this.tinyDec = tinyDec
             if (tinyNegative) {
@@ -178,15 +184,15 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
             if (tinyNegative)
                 unscaled = -unscaled
             val bd = BigDecimal.valueOf(unscaled.toLong(), tinyDec.pos())
-            this.decimal = applyDeciContext(bd, deciContext)
+            this.decimal = applyDeciContext(bd, ctxMix)
             setFlagOn(FLAG_TINY_INIT)
         }
     }
 
     // TinyDec4
-    private constructor(tiny4: TinyDec4d, tinyNegative: Boolean, deciContext: DeciContext, markForTiny4Arg: Boolean) {
-        this.initDeciContext(deciContext)
-        if (tiny4.pos() <= deciContext.scale) {
+    private constructor(tiny4: TinyDec4d, tinyNegative: Boolean, ctxMix: CtxMixed, markForTiny4Arg: Boolean) {
+        this.initDeciContext(ctxMix)
+        if (tiny4.pos() <= ctxMix.scale()) {
             this.decimal = null
             this.tinyDec = TinyDec(tiny4.raw)
             setFlagOn(FLAG_TINY_DEC4)
@@ -197,7 +203,7 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
             if (tinyNegative)
                 unscaled = -unscaled
             val bd = BigDecimal.valueOf(unscaled.toLong(), tiny4.pos())
-            this.decimal = applyDeciContext(bd, deciContext)
+            this.decimal = applyDeciContext(bd, ctxMix)
             setFlagOn(FLAG_TINY_INIT)
         }
     }
@@ -207,23 +213,23 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
     // So,
     // these functions are for Java, and for kotlin operator functions - there are extension ones
     @JvmName("plus")
-    fun plusInternal(other: Deci): Deci = this.plusInternal(other, deciContext)
+    fun plusInternal(other: Deci): Deci = this.plusInternal(other, mixed)
     @JvmName("minus")
-    fun minusInternal(other: Deci): Deci = this.minusInternal(other, deciContext)
+    fun minusInternal(other: Deci): Deci = this.minusInternal(other, mixed)
     @JvmName("times")
-    fun timesInternal(other: Deci): Deci = this.timesInternal(other, deciContext)
+    fun timesInternal(other: Deci): Deci = this.timesInternal(other, mixed)
     @JvmName("div")
-    fun divInternal(other: Deci): Deci = this.divInternal(other, deciContext)
+    fun divInternal(other: Deci): Deci = this.divInternal(other, mixed)
     @JvmName("rem")
-    fun remInternal(other: Deci): Deci = this.remInternal(other, deciContext)
+    fun remInternal(other: Deci): Deci = this.remInternal(other, mixed)
 
     actual operator fun unaryMinus(): Deci {
         if (tinyDec.isValid()) {
             if (tinyDec.isZero())
                 return this
-            return Deci(tinyDec, !isNegative(), deciContext)
+            return Deci(tinyDec, !isNegative(), mixed)
         }
-        return Deci(decimal!!.negate(), deciContext)
+        return Deci(decimal!!.negate(), mixed)
     }
 
     actual override fun toByte(): Byte {
@@ -249,26 +255,27 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
     }
 
     actual fun applyDeciContext(deciContext: DeciContext): Deci {
-        return if (this.deciContext.isDeciCtxEqual(deciContext)) this else Deci(asDecimal(), deciContext = deciContext)
+        return if (this.mixed.isDeciCtxEqual(deciContext)) this else Deci(asDecimal(), deciContext = deciContext)
     }
 
     /** round to n decimals. Unlike BigDecimal.round(), here parameter 'scale' means scale, not precision */
     actual infix fun round(scale: Int): Deci {
+        val roundMode = mixed.roundingMode()
         if (this.tinyDec.isValid()) {
             val isDec4 = isFlag(FLAG_TINY_DEC4)
             val isNeg = isFlag(FLAG_NEGATIVE)
             if (!isDec4 && scale in 0..3) {
                 if (scale >= tinyDec.pos())
                     return this
-                val pair = TinyUDecMath.round(getTinyUnscaled(), getTinyPos(), scale, deciContext.roundingMode)
-                return createFromTwoInt(pair, isNeg, deciContext) ?: error("Can't round, invalid number")
+                val pair = TinyUDecMath.round(getTinyUnscaled(), getTinyPos(), scale, roundMode)
+                return createFromTwoInt(pair, isNeg, mixed) ?: error("Can't round, invalid number")
             }
             if (isDec4) {
                 val tiny4Pos = getTinyPos()
                 if (scale >= tiny4Pos)
                     return this
-                val pair = TinyUDecMath.round(getTinyUnscaled(), tiny4Pos, scale, deciContext.roundingMode)
-                val res = createFromTwoInt(pair, isNeg, deciContext)
+                val pair = TinyUDecMath.round(getTinyUnscaled(), tiny4Pos, scale, roundMode)
+                val res = createFromTwoInt(pair, isNeg, mixed)
                 if (res != null)
                     return res
             }
@@ -276,8 +283,8 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
         val bdec = this.asDecimal()
         if (bdec.scale() <= scale)
             return this
-        val dec = bdec.setScale(scale, deciContext.javaRoundingMode)
-        return Deci(dec, deciContext)
+        val dec = bdec.setScale(scale, roundMode.toJava())
+        return Deci(dec, mixed)
     }
 
     actual override fun compareTo(other: Deci): Int {
@@ -330,104 +337,120 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
     }
 
     private fun calcDivScale(divisor: BigDecimal): Int {
+        val ctxScale = mixed.scale()
         val dec = this.decimal!!
         val thisIntDigits = if (dec.signum() == 0) 1 else dec.precision() - dec.scale()
         val divisorIntDigits = if (divisor.signum() == 0) 1 else divisor.precision() - divisor.scale()
         if (divisorIntDigits < 0)
-            return max(dec.scale(), deciContext.scale) // dividing will increase result
-        return max(deciContext.scale, deciContext.precision + divisorIntDigits - thisIntDigits)
+            return max(dec.scale(), ctxScale) // dividing will increase result
+        val ctxPrecision = mixed.precision()
+        return max(ctxScale, ctxPrecision + divisorIntDigits - thisIntDigits)
+    }
+
+    private fun applyDeciContext(dec: BigDecimal, ctxMix: CtxMixed): BigDecimal {
+        val ctxScale = ctxMix.scale()
+        return when {
+            dec.scale() > ctxScale -> {
+                val zeros = max(0, dec.scale() - dec.precision())
+                val scale = max(ctxScale, min(zeros + ctxMix.precision(), dec.scale()))
+                dec.setScale(scale, ctxMix.javaRoundingMode())
+            }
+            dec.scale() < 0 -> dec.setScale(0, ctxMix.javaRoundingMode())
+            else -> dec
+        }
     }
 
     private fun applyDeciContext(dec: BigDecimal, deciCtx: DeciContext): BigDecimal {
         return when {
-            dec.scale() < 0 -> dec.setScale(0, deciCtx.javaRoundingMode)
             dec.scale() > deciCtx.scale -> {
                 val zeros = max(0, dec.scale() - dec.precision())
                 val scale = max(deciCtx.scale, min(zeros + deciCtx.precision, dec.scale()))
                 dec.setScale(scale, deciCtx.javaRoundingMode)
             }
+            dec.scale() < 0 -> dec.setScale(0, deciCtx.javaRoundingMode)
             else -> dec
         }
     }
 
     @JvmSynthetic
-    internal fun plusInternal(other: Deci, deciCtx: DeciContext): Deci {
+    internal fun plusInternal(other: Deci, ctxMix: CtxMixed): Deci {
         if (tinyDec.isValid() && other.tinyDec.isValid()) {
-            val r = addTinySigned(other, negateOther = false, deciCtx)
+            val r = addTinySigned(other, negateOther = false, ctxMix)
             if (r != null)
                 return r
         }
-        return Deci(toBigDecimal().add(other.toBigDecimal()), deciCtx)
+        return Deci(toBigDecimal().add(other.toBigDecimal()), ctxMix)
     }
 
     @JvmSynthetic
-    internal fun minusInternal(other: Deci, deciCtx: DeciContext): Deci {
+    internal fun minusInternal(other: Deci, ctxMix: CtxMixed): Deci {
         if (tinyDec.isValid() && other.tinyDec.isValid()) {
             // subtract = add with sign of other flipped
-            val r = addTinySigned(other, negateOther = true, deciCtx)
+            val r = addTinySigned(other, negateOther = true, ctxMix)
             if (r != null)
                 return r
         }
-        return Deci(toBigDecimal().subtract(other.toBigDecimal()), deciCtx)
+        return Deci(toBigDecimal().subtract(other.toBigDecimal()), ctxMix)
     }
 
     @JvmSynthetic
-    internal fun timesInternal(other: Deci, deciCtx: DeciContext): Deci {
+    internal fun timesInternal(other: Deci, ctxMix: CtxMixed): Deci {
         if (tinyDec.isValid() && other.tinyDec.isValid()) {
             val mulRes = TinyUDecMath.mulOrErr(getTinyUnscaled(), getTinyPos(), other.getTinyUnscaled(), other.getTinyPos())
             val resultNeg = isNegative() xor other.isNegative()
-            val r = createFromTwoInt(mulRes, resultNeg, deciCtx)
+            val r = createFromTwoInt(mulRes, resultNeg, ctxMix)
             if (r != null)
                 return r
         }
-        return Deci(toBigDecimal().multiply(other.toBigDecimal()), deciCtx)
+        return Deci(toBigDecimal().multiply(other.toBigDecimal()), ctxMix)
     }
 
     @JvmSynthetic
-    internal fun divInternal(other: Deci, deciCtx: DeciContext): Deci {
+    internal fun divInternal(other: Deci, ctxMix: CtxMixed): Deci {
         if (tinyDec.isValid() && other.tinyDec.isValid()) {
             val divRes = TinyUDecMath.tryDivOrErr(getTinyUnscaled(), getTinyPos(), other.getTinyUnscaled(), other.getTinyPos())
             val resultNeg = isNegative() xor other.isNegative()
-            val r = createFromTwoInt(divRes, resultNeg, deciCtx)
+            val r = createFromTwoInt(divRes, resultNeg, ctxMix)
             if (r != null)
                 return r
         }
         val a = toBigDecimal()
         val b = other.toBigDecimal()
-        val dec = a.divide(b, calcDivScale(b), deciCtx.javaRoundingMode)
-        return Deci(dec, deciCtx)
+        val dec = a.divide(b, calcDivScale(b), ctxMix.javaRoundingMode())
+        return Deci(dec, ctxMix)
     }
 
     @JvmSynthetic
-    internal fun remInternal(other: Deci, deciCtx: DeciContext): Deci {
+    internal fun remInternal(other: Deci, ctxMix: CtxMixed): Deci {
         if (tinyDec.isValid() && other.tinyDec.isValid()) {
-            val r = remTinySigned(other, deciCtx)
+            val r = remTinySigned(other, ctxMix)
             if (r != null)
                 return r
         }
-        return Deci(this.toBigDecimal().rem(other.toBigDecimal()), deciContext)
+        return Deci(this.toBigDecimal().rem(other.toBigDecimal()), ctxMix)
     }
 
-    private fun createFromTwoInt(pair: TwoInt, neg: Boolean, deciCtx: DeciContext) : Deci? {
+    private fun createFromTwoInt(pair: TwoInt, neg: Boolean, ctxMix: CtxMixed) : Deci? {
         if (pair.isErr())
             return null
-        return createFromUnscaledPos(pair.first(), pair.second(), neg, deciCtx)
+        return createFromUnscaledPos(pair.first(), pair.second(), neg, ctxMix)
     }
 
-    private fun createFromUnscaledPos(unscaled: Int, pos: Int, neg: Boolean, deciCtx: DeciContext) : Deci? {
+    @JvmName("createFromUnscaledPos") // for tests only
+    private fun createFromUnscaledPos(unscaled: Int, pos: Int, neg: Boolean, ctxMix: CtxMixed) : Deci? {
         val rtiny = TinyDec.buildTinyOrErr(unscaled, pos)
         if (rtiny.isValid()) {
-            return Deci(rtiny, neg && unscaled != 0, deciCtx)
+            return Deci(rtiny, neg && unscaled != 0, ctxMix)
         }
         val rtiny4 = TinyDec4d.buildTiny4dOrErr(unscaled, pos)
         if (rtiny4.isValid())
-            return Deci(rtiny4, neg, deciCtx, true)
+            return Deci(rtiny4, neg, ctxMix, true)
         return null
     }
 
     // Signed addition of two tinyDec values, optionally negating the other operand (for subtraction).
     // Returns null if the result overflows TinyUDec range — caller falls back to BigDecimal.
-    private fun addTinySigned(other: Deci, negateOther: Boolean, deciCtx: DeciContext): Deci? {
+    private fun addTinySigned(other: Deci, negateOther: Boolean, ctxMix: CtxMixed): Deci? {
         val aneg = isNegative()
         val aval = this.getTinyUnscaled()
         val apos = this.getTinyPos()
@@ -437,27 +460,27 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
         if (aneg == bneg) {
             // same sign: magnitudes add, sign is preserved
             val pair = TinyUDecMath.addOrErr(aval, apos, bval, bpos)
-            return createFromTwoInt(pair, aneg, deciCtx)
+            return createFromTwoInt(pair, aneg, ctxMix)
         }
         // different signs: subtract smaller magnitude from larger, sign follows the larger
         val comp = TinyUDecMath.compare(aval, apos, bval, bpos)
         if (comp > 0) {
             val pair = TinyUDecMath.subOrErr(aval, apos, bval, bpos)
-            return createFromTwoInt(pair, aneg, deciCtx)
+            return createFromTwoInt(pair, aneg, ctxMix)
         }
         val res = TinyUDecMath.subOrErr(bval, bpos, aval, apos)
-        return createFromTwoInt(res, bneg, deciCtx)
+        return createFromTwoInt(res, bneg, ctxMix)
     }
 
     // Signed remainder of two tinyDec values.
     // Returns null if the result overflows TinyUDec range — caller falls back to BigDecimal.
-    private fun remTinySigned(other: Deci, deciCtx: DeciContext): Deci? {
+    private fun remTinySigned(other: Deci, ctxMix: CtxMixed): Deci? {
         val aval = this.getTinyUnscaled()
         val apos = this.getTinyPos()
         val bval = other.getTinyUnscaled()
         val bpos = other.getTinyPos()
         val res = TinyUDecMath.remOrErr(aval, apos, bval, bpos)
-        return createFromTwoInt(res, isNegative(), deciCtx)
+        return createFromTwoInt(res, isNegative(), ctxMix)
     }
 
     fun toBigDecimal(): BigDecimal {
@@ -549,38 +572,40 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
         return
     }
 
-    // ----------------------------------------------------------------
-    // implement DeciContext using "mixed" value and share it with boolean flags for Deci
-    // so we can fit into single 32 bit integer.
-    /** IS NOT part of Deci API (is part of DeciContext) */
-    override val scale: Int
-        get() = mixed and MASK_11BITS
-    /** IS NOT part of Deci API (is part of DeciContext) */
-    override val roundingMode: RoundingMode
-        get() = RoundingMode.entries[(mixed ushr 22) and MASK_3BITS]
-    /** IS NOT part of Deci API (is part of DeciContext) */
-    override val precision: Int
-        get() = (mixed ushr 11) and MASK_11BITS
-
-    private fun setDeciContextValue(ctxVal: Int) {
-        mixed = (mixed and DeciContextImpl.MASK_25BITS_INV) or (ctxVal and MASK_25BITS)
-    }
     private fun initDeciContext(deciCtx: DeciContext) {
         val mix: Int = when (deciCtx) {
-            is Deci -> deciCtx.mixed
+            is DeciContextMixedImpl -> deciCtx.mixed.raw
             is DeciContextImpl -> deciCtx.mixed
             else -> DeciContextImpl.convDeciCtxValue(deciCtx)
         }
-        this.mixed = mix and MASK_25BITS // will clear flags, for constructors only
+        this.mixed = CtxMixed(mix and MASK_25BITS) // will clear flags, for constructors only
     }
 
-    private inline fun isFlag(flag: Int) = mixed and flag != 0
+    private inline fun initDeciContext(ctxMix: CtxMixed) {
+        this.mixed = CtxMixed(ctxMix.raw and MASK_25BITS) // will clear flags, for constructors only
+    }
+
+    private inline fun isFlag(flag: Int) = mixed.isFlag(flag)
     private fun setFlagOn(flag: Int) {
-        mixed = mixed or flag
+        mixed = CtxMixed(mixed.raw or flag)
     }
 
     private inline fun isNegative() = isFlag(FLAG_NEGATIVE)
     // ----------------------------------------------------------------
+
+    // 'mixed' contains: a) deciContext (25 bits); b) flags
+    @JvmInline
+    internal value class CtxMixed(val raw: Int) {
+        internal inline fun precision(): Int = (raw ushr 11) and MASK_11BITS
+        internal inline fun roundingMode(): com.github.labai.deci.RoundingMode = RoundingMode.entries[(raw ushr 22) and MASK_3BITS]
+        internal inline fun scale(): Int = raw and MASK_11BITS
+        internal inline fun javaRoundingMode(): JavaRoundingMode = roundingMode().toJava()
+
+        internal inline fun isFlag(flag: Int) = raw and flag != 0
+
+        internal fun getAsDeciContext(): DeciContext = DeciContextMixedImpl(this)
+    }
+
 
     actual companion object {
         private val originalDefaultDeciContext: DeciContext = DeciContextImpl(20, RoundingMode.HALF_UP, 20)
@@ -594,6 +619,7 @@ actual class Deci : Number, Comparable<Deci>, DeciContext {
         private val D10 = Deci(10L).apply { toBigDecimal() }
         private val D100 = Deci(100L).apply { toBigDecimal() }
         private val D1000 = Deci(1000L).apply { toBigDecimal() }
+        private val MIXED_NOTINIT = CtxMixed(0)
 
         private const val FLAG_TINY_INIT: Int = 1 shl 26 // have tried to init tinyDec (even if failed)
         private const val FLAG_TINY_TRIM: Int = 1 shl 27
@@ -644,11 +670,11 @@ operator fun Deci.times(other: BigDecimal): Deci = this.times(other.deci)
 operator fun Deci.div(other: BigDecimal): Deci = this.div(other.deci)
 operator fun Deci.rem(other: BigDecimal): Deci = this.rem(other.deci)
 
-actual operator fun Deci.plus(other: Deci): Deci = this.plusInternal(other, this.deciContext)
-actual operator fun Deci.minus(other: Deci): Deci = this.minusInternal(other, this.deciContext)
-actual operator fun Deci.times(other: Deci): Deci = this.timesInternal(other, this.deciContext)
-actual operator fun Deci.div(other: Deci): Deci = this.divInternal(other, this.deciContext)
-actual operator fun Deci.rem(other: Deci): Deci = this.remInternal(other, this.deciContext)
+actual operator fun Deci.plus(other: Deci): Deci = this.plusInternal(other, this.getMixed())
+actual operator fun Deci.minus(other: Deci): Deci = this.minusInternal(other, this.getMixed())
+actual operator fun Deci.times(other: Deci): Deci = this.timesInternal(other, this.getMixed())
+actual operator fun Deci.div(other: Deci): Deci = this.divInternal(other, this.getMixed())
+actual operator fun Deci.rem(other: Deci): Deci = this.remInternal(other, this.getMixed())
 
 actual operator fun Deci.plus(other: Int): Deci = this.plus(other.deci)
 actual operator fun Deci.minus(other: Int): Deci = this.minus(other.deci)
@@ -692,7 +718,7 @@ actual fun Companion.valueOf(str: String): Deci = Deci(str)
 
 actual fun Companion.valueOf(num: Number, deciContext: DeciContext): Deci {
     return when (num) {
-        is Deci -> if (deciContext.isDeciCtxEqual(num.deciContext)) num else Deci(num.toBigDecimal(), deciContext)
+        is Deci -> if (deciContext.isDeciCtxEqual(num.getMixed())) num else Deci(num.toBigDecimal(), deciContext)
         is BigDecimal -> Deci(num, deciContext)
         is Int -> Deci(int = num, deciContext)
         is Long -> Deci(long = num, deciContext)

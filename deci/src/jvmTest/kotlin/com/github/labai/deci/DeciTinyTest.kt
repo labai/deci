@@ -23,6 +23,7 @@ SOFTWARE.
 */
 package com.github.labai.deci
 
+import com.github.labai.deci.Deci.CtxMixed
 import com.github.labai.deci.RoundingMode.HALF_UP
 import com.github.labai.deci.impl.TinyDec
 import com.github.labai.deci.impl.TinyUDecMath.ERR_VALUE
@@ -260,20 +261,20 @@ class DeciTinyTest {
             assertEquals(1, d.priv_tinyDec().raw)
         }
 
-        val ctx1 = DeciContext.of(scale = 1, roundingMode = HALF_UP, precision = 1)
+        val ctx1 = DeciContextImpl(scale = 1, roundingMode = HALF_UP, precision = 1)
         val template = Deci.valueOf("1", ctx1)
-
+        val ctxMix = template.getMixed()
 
         // TinyDec
         step {
-            val res = template.priv_createFromUnscaledPos(1234, 3, false, ctx1)!!
+            val res = template.priv_createFromUnscaledPos(1234, 3, false, ctxMix)!!
             assertEquals(ERR_VALUE, res.priv_tinyDec().raw)
             assertEquals("1.2", res.toString())
         }
 
         // TinyDec4d
         step {
-            val res = template.priv_createFromUnscaledPos(12345, 4, false, ctx1)!!
+            val res = template.priv_createFromUnscaledPos(12345, 4, false, ctxMix)!!
             assertEquals(ERR_VALUE, res.priv_tinyDec().raw)
             assertEquals("1.2", res.toString())
         }
@@ -345,6 +346,6 @@ class DeciTinyTest {
         private const val FLAG_NEGATIVE: Int = 1 shl 29
         private const val FLAG_TINY_DEC4: Int = 1 shl 30 // tinyDec is TinyDec4d, not TinyDec
 
-        fun isFlagSet( mixed: Int, flag: Int) = mixed and flag != 0
+        internal fun isFlagSet(mixed: CtxMixed, flag: Int) = mixed.raw and flag != 0
     }
 }

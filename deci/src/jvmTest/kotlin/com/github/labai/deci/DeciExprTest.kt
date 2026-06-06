@@ -258,8 +258,8 @@ class DeciExprTest {
     fun jvm_deciContext_isEqual() {
         val ctx1 = DeciContext.of(scale = 4, roundingMode = HALF_UP, precision = 3)
         val ctx2 = TestDeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
-        val ctx3 = Deci.valueOf(1, ctx1)
-        val ctx4 = Deci.valueOf(1, ctx2)
+        val ctx3 = Deci.valueOf(1, ctx1).deciContext
+        val ctx4 = Deci.valueOf(1, ctx2).deciContext
         val all = listOf(ctx1, ctx2, ctx3, ctx4)
         for (c1 in all) {
             for (c2 in all) {

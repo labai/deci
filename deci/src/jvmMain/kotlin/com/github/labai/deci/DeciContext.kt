@@ -23,6 +23,7 @@ SOFTWARE.
 */
 package com.github.labai.deci
 
+import com.github.labai.deci.Deci.CtxMixed
 import com.github.labai.deci.DeciContextImpl.Companion.MASK_25BITS
 import java.io.Serializable
 import java.math.RoundingMode as JavaRoundingMode
@@ -91,6 +92,15 @@ internal class DeciContextImpl : DeciContext {
     }
 }
 
+internal class DeciContextMixedImpl(internal val mixed: CtxMixed): DeciContext {
+    override val precision: Int
+        get() = mixed.precision()
+    override val roundingMode: RoundingMode
+        get() = mixed.roundingMode()
+    override val scale: Int
+        get() = mixed.scale()
+}
+
 internal val DeciContext.javaRoundingMode: JavaRoundingMode
     get() = this.roundingMode.toJava()
 
@@ -104,20 +114,43 @@ internal fun RoundingMode.toJava(): JavaRoundingMode = when (this) {
     RoundingMode.FLOOR -> JavaRoundingMode.FLOOR
 }
 
+internal fun CtxMixed.isDeciCtxEqual(other: DeciContext): Boolean {
+    return other.isDeciCtxEqual(this)
+}
+
+internal fun DeciContext.isDeciCtxEqual(other: CtxMixed): Boolean {
+    val mixed = when (this) {
+        is DeciContextImpl -> this.mixed
+        is DeciContextMixedImpl -> this.mixed.raw
+        else -> 0
+    }
+    if (mixed != 0)
+        return (other.raw and MASK_25BITS) == (mixed and MASK_25BITS)
+
+    if (this.scale != other.scale())
+        return false
+    if (this.precision != other.precision())
+        return false
+    if (this.roundingMode != other.roundingMode())
+        return false
+
+    return true
+}
+
 internal fun DeciContext.isDeciCtxEqual(other: DeciContext): Boolean {
     if (this === other)
         return true
 
     val mixed1 = when (this) {
         is DeciContextImpl -> this.mixed
-        is Deci -> this.getMixed()
+        is DeciContextMixedImpl -> this.mixed.raw
         else -> 0
     }
 
     if (mixed1 != 0) {
         val mixed2 = when (other) {
             is DeciContextImpl -> other.mixed
-            is Deci -> other.getMixed()
+            is DeciContextMixedImpl -> other.mixed.raw
             else -> 0
         }
         if (mixed2 != 0)
