@@ -66,9 +66,9 @@ internal class DeciContextImpl : DeciContext {
         this.roundingMode = roundingMode
         this.precision = precision
         check(scale >= 0) { "scale must be >= 0 (is $scale)" }
-        check(scale <= 2000) { "scale must be <= 2000 (is $scale)" }
+        check(scale <= 200) { "scale must be <= 200 (is $scale)" } // could be increased to 2k
         check(precision >= 1) { "precision must be >= 1 (is $precision)" }
-        check(precision <= 2000) { "precision must be <= 2000 (is $precision)" }
+        check(precision <= 200) { "precision must be <= 200 (is $precision)" } // could be increased to 2k
         this.mixed = convDeciCtxValue(scale, roundingMode, precision)
     }
 

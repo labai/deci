@@ -27,6 +27,7 @@ import com.github.labai.deci.Deci.Companion
 import com.github.labai.deci.DeciContextImpl.Companion.MASK_11BITS
 import com.github.labai.deci.DeciContextImpl.Companion.MASK_25BITS
 import com.github.labai.deci.DeciContextImpl.Companion.MASK_3BITS
+import com.github.labai.deci.impl.BigDecimalUtils
 import com.github.labai.deci.impl.TinyDec
 import com.github.labai.deci.impl.TinyDec.Companion.ERR
 import com.github.labai.deci.impl.TinyDec4d
@@ -39,7 +40,6 @@ import java.math.BigInteger
 import kotlin.math.absoluteValue
 import kotlin.math.max
 import kotlin.math.min
-
 import java.math.RoundingMode as JavaRoundingMode
 
 /*
@@ -54,6 +54,19 @@ import java.math.RoundingMode as JavaRoundingMode
  *
  * For DeciContext also use part of integer (25 bits), other few bits are used as flags in Deci,
  *
+ * In total Deci contains
+ * - 12 bytes - Deci object header itself (depends on jvm)
+ * - 4 bytes - Int for "tinyDec"
+ * - 4 bytes - Int for "mixed"
+ * - 4 bytes - reference to BigDecimal
+ *
+ * In total 24 bytes if BigDecimal is not used.
+ *
+ * In case BigDecimal is used, it will consume additional
+ * 36-96+ bytes for BigDecimal instance (can be more, depends on size of the number)
+ *
+ * For internal calculation here we use primitives, with no intermediate objects
+ * (following "zero-garbage computations" idea)
  *
 */
 actual class Deci : Number, Comparable<Deci> {
@@ -65,10 +78,10 @@ actual class Deci : Number, Comparable<Deci> {
     // 'tinyDec' may contain TinyDec (0..3 decimals) or TinyDec4d (4..7 decimals). The flag FLAG_TINY_DEC4 indicates which one is used
     private var tinyDec: TinyDec = ERR
     // 'mixed' contains: a) deciContext (25 bits); b) flags
-    private var mixed: CtxMixed = MIXED_NOTINIT
+    private var mixed: CtxMixed  = MIXED_NOTINIT
 
     @JvmSynthetic
-    internal fun getMixed() = mixed
+    internal inline fun getMixed() = mixed
 
     private inline fun getTinyPos() = if (isFlag(FLAG_TINY_DEC4)) tinyDec.pos() + 4 else tinyDec.pos()
     private inline fun getTinyUnscaled() = tinyDec.unscaled()
@@ -88,15 +101,24 @@ actual class Deci : Number, Comparable<Deci> {
     actual constructor(str: String, deciContext: DeciContext) {
         this.initDeciContext(deciContext)
         val isNeg = str.startsWith('-', false)
-        val pair = TinyUDecMath.parseString(str, MAX_INT_LEN, TinyDec4d.maxPos, true)
-        val pos = pair.second()
-        if (!pair.isErr() && pos <= deciContext.scale)  {
-            assignTiny(pair.first(), pos, isNeg)
-            setFlagOn(FLAG_TINY_TRIM)
-        } else {
-            this.decimal = applyDeciContext(BigDecimal(str), deciContext)
-            setFlagOn(FLAG_TINY_INIT)
+        val len = if (isNeg) str.length - 1 else str.length
+        if (len <= 9) {
+            val pair = TinyUDecMath.parseString(str, MAX_INT_LEN, TinyDec4d.maxPos, true)
+            val pos = pair.second()
+            if (!pair.isErr() && pos <= deciContext.scale) {
+                assignTiny(pair.first(), pos, isNeg)
+                setFlagOn(FLAG_TINY_TRIM)
+                return
+            }
         }
+        var bd: BigDecimal? = null
+        if (len <= 33)
+            bd = BigDecimalUtils.parseString(str)
+        if (bd == null)
+            bd = BigDecimal(str)
+        this.decimal = applyDeciContext(bd, deciContext)
+        setFlagOn(FLAG_TINY_INIT)
+
     }
     actual constructor(str: String) : this(str, defaultDeciContext)
 
@@ -105,16 +127,23 @@ actual class Deci : Number, Comparable<Deci> {
         this.initDeciContext(deciCtx)
         chars[offset]
         val isNeg = (chars[offset] == '-')
-        val pair = TinyUDecMath.parseCharArray(chars, offset, length, MAX_INT_LEN, TinyDec4d.maxPos, true)
-        val pos = pair.second()
-        if (!pair.isErr() && pos <= deciCtx.scale)  {
-            assignTiny(pair.first(), pos, isNeg)
-            setFlagOn(FLAG_TINY_TRIM)
-        } else {
-            val bd = BigDecimal(chars, offset, length)
-            this.decimal = applyDeciContext(bd, deciCtx)
-            setFlagOn(FLAG_TINY_INIT)
+        val len = if (isNeg) length - 1 else length
+        if (len <= 9) {
+            val pair = TinyUDecMath.parseCharArray(chars, offset, length, MAX_INT_LEN, TinyDec4d.maxPos, true)
+            val pos = pair.second()
+            if (!pair.isErr() && pos <= deciCtx.scale) {
+                assignTiny(pair.first(), pos, isNeg)
+                setFlagOn(FLAG_TINY_TRIM)
+                return
+            }
         }
+        var bd: BigDecimal? = null
+        if (len <= 33)
+            bd = BigDecimalUtils.parseCharArray(chars, offset, length)
+        if (bd == null)
+            bd = BigDecimal(chars, offset, length)
+        this.decimal = applyDeciContext(bd, deciCtx)
+        setFlagOn(FLAG_TINY_INIT)
     }
     constructor(chars: CharArray, offset: Int, length: Int) : this(chars, offset, length, defaultDeciContext)
 
@@ -585,7 +614,7 @@ actual class Deci : Number, Comparable<Deci> {
         this.mixed = CtxMixed(ctxMix.raw and MASK_25BITS) // will clear flags, for constructors only
     }
 
-    private inline fun isFlag(flag: Int) = mixed.isFlag(flag)
+    private inline fun isFlag(flag: Int) = mixed.raw and flag != 0
     private fun setFlagOn(flag: Int) {
         mixed = CtxMixed(mixed.raw or flag)
     }
@@ -601,15 +630,12 @@ actual class Deci : Number, Comparable<Deci> {
         internal inline fun scale(): Int = raw and MASK_11BITS
         internal inline fun javaRoundingMode(): JavaRoundingMode = roundingMode().toJava()
 
-        internal inline fun isFlag(flag: Int) = raw and flag != 0
-
         internal fun getAsDeciContext(): DeciContext = DeciContextMixedImpl(this)
     }
 
 
     actual companion object {
         private val originalDefaultDeciContext: DeciContext = DeciContextImpl(20, RoundingMode.HALF_UP, 20)
-        private val defaultDeciContextValue = (originalDefaultDeciContext as DeciContextImpl).mixed
         actual var defaultDeciContext: DeciContext = originalDefaultDeciContext
 
         // few popular numbers
@@ -629,37 +655,33 @@ actual class Deci : Number, Comparable<Deci> {
         private const val FLAG_RESERVED: Int = 1 shl 31 // not for use (first bit, need to review)
 
         actual fun valueOf(int: Int): Deci {
-            return when (int) {
-                in 0..1000 -> {
-                    when (int) {
-                        0 -> ZERO
-                        1 -> D1
-                        2 -> D2
-                        10 -> D10
-                        100 -> D100
-                        1000 -> D1000
-                        else -> Deci(int)
-                    }
+            return if (int in 0..1000 && defaultDeciContext == originalDefaultDeciContext) {
+                when (int) {
+                    0 -> ZERO
+                    1 -> D1
+                    2 -> D2
+                    10 -> D10
+                    100 -> D100
+                    1000 -> D1000
+                    else -> Deci(int)
                 }
-                else -> Deci(int)
             }
+            else Deci(int)
         }
 
         actual fun valueOf(long: Long): Deci {
-            return when (long) {
-                in 0L..1000L -> {
-                    when (long) {
-                        0L -> ZERO
-                        1L -> D1
-                        2L -> D2
-                        10L -> D10
-                        100L -> D100
-                        1000L -> D1000
-                        else -> Deci(long)
-                    }
+            return if (long in 0L..1000L && defaultDeciContext == originalDefaultDeciContext) {
+                when (long) {
+                    0L -> ZERO
+                    1L -> D1
+                    2L -> D2
+                    10L -> D10
+                    100L -> D100
+                    1000L -> D1000
+                    else -> Deci(long)
                 }
-                else -> Deci(long)
             }
+            else Deci(long)
         }
     }
 }

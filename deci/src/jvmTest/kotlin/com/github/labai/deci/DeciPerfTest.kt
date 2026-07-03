@@ -1,5 +1,7 @@
 package com.github.labai.deci
 
+import ch.randelshofer.fastdoubleparser.JavaBigDecimalParser
+import com.github.labai.deci.impl.BigDecimalUtils
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
@@ -12,7 +14,7 @@ import kotlin.time.measureTime
  *
  * Deci
  *  220 - when only tinyInt as back
- *  780 - when bigDecimal as back
+ *  710 - when bigDecimal as back
  * BigDecimal
  *  2630 - if to use setScale(20)
  *  (460 - if don't change scale, but then result is incorrect)
@@ -42,7 +44,7 @@ class DeciPerfTest {
         runTestFn(testFn)
     }
 
-    // time=770ms
+    // time=710s
     @Disabled
     @Test
     fun test_perf_3_deci_when_bigDec() {
@@ -87,6 +89,55 @@ class DeciPerfTest {
         println(res)
     }
 
+    // Java native BigDec  : time=309ms
+    // JavaBigDecimalParser: time=345ms
+    // Deci parser         : time=172ms
+    @Disabled
+    @Test
+    fun test_perf_bigDec_fromString() {
+        val times = 1_000_000
+        val ar = arrayOf("1234567890.12345678901234567890", "-111222333.11122233")
+        var n = 0
+        val testFn1 = {
+            var d: BigDecimal
+            for (i in 1..times) {
+                for (j in ar.indices) {
+                    d = BigDecimal(ar[j])
+                    n += d.scale()
+                }
+            }
+            n
+        }
+        val testFn2 = {
+            var d: BigDecimal
+            for (i in 1..times) {
+                for (j in ar.indices) {
+                    d = JavaBigDecimalParser.parseBigDecimal(ar[j])
+                    n += d.scale()
+                }
+            }
+            n
+        }
+        val testFn3 = {
+            var d: BigDecimal
+            for (i in 1..times) {
+                for (j in ar.indices) {
+                    d = BigDecimalUtils.parseString(ar[j]) ?: BigDecimal.ZERO
+                    n += d.scale()
+                }
+            }
+            n
+        }
+        println("BigDecimal:")
+        runTestFn(testFn1)
+        println("JavaBigDecimalParser:")
+        runTestFn(testFn2)
+        println("Deci parser:")
+        runTestFn(testFn3)
+
+        if (n == 0) println("") // dummy use of 'n'
+    }
+
     data class TestDto(
         val d1: Deci,
         val d2: Deci,
@@ -120,6 +171,7 @@ class DeciPerfTest {
         }
         println(list.size)
     }
+
     //
     // helpers
     //

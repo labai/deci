@@ -27,6 +27,9 @@ kotlin {
         jvmTest.dependencies {
             implementation("org.junit.jupiter:junit-jupiter-api:5.5.2")
             implementation("org.junit.jupiter:junit-jupiter-params:5.5.2")
+
+            // expected better performance, but is slower than native jdk...
+            implementation("ch.randelshofer:fastdoubleparser:2.0.1")
         }
 
         jsMain.dependencies {

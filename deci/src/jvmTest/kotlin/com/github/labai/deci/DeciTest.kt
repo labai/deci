@@ -73,8 +73,9 @@ class DeciTest {
         // as TinyDec w/e trailing zeros
         assertEquals(BigDecimal("1.11"), (Deci("1.11") round 4).toBigDecimal())
         // ??
-        // as BigDecimal - may have trailing zeros
-        assertEquals(BigDecimal("1002003004.1100"), (Deci("1002003004.1100") round 4).toBigDecimal())
+        // as BigDecimal - may have trailing zeros (depends on which parser is used)
+        assertEquals(BigDecimal("1002003004.11"), (Deci("1002003004.1100") round 4).toBigDecimal()) // trimmed
+        assertEquals(BigDecimal("1002003004005006007008009010011012.1100"), (Deci("1002003004005006007008009010011012.1100") round 4).toBigDecimal()) // not trimmed
 
         assertDecEquals("1.12", Deci("1.115") round 2)
     }
@@ -87,6 +88,14 @@ class DeciTest {
 
         // floats are not precise
         assertFalse("2.2".deci eq Deci.valueOf(2.2.toFloat()))
+    }
+
+    @Test
+    fun jvm_fromString() {
+        assertEquals("-1.1", Deci("-1.10").toString()) // tinyDec
+        assertEquals("-1.10001", Deci("-1.100010").toString()) // tinyDec4
+        assertEquals("-1000000000.10001", Deci("-1000000000.10001").toString()) // our parser
+        assertEquals("-10000000001000000000100000000010.10001", Deci("-10000000001000000000100000000010.10001").toString()) // native parser
     }
 
     @Test

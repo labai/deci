@@ -393,7 +393,7 @@ internal object TinyUDecMath {
     }
 
     internal fun parseCharArray(chars: CharArray, offset: Int, length: Int, maxDigits: Int, maxPos: Int, silent: Boolean): TwoInt {
-        if (length == 0 || chars.size < offset + length)
+        if (length == 0 || chars.size < offset + length || offset < 0)
             return errOrRaise(silent) { "String buffer is invalid or empty" }
         val strForLog = { String(chars.sliceArray(offset until offset + length)) }
         return parseStringOrCharArray({ chars[it] }, strForLog, offset, length, maxDigits, maxPos, silent)
