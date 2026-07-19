@@ -112,7 +112,7 @@ actual class Deci : Number, Comparable<Deci> {
             }
         }
         var bd: BigDecimal? = null
-        if (len <= 33)
+        if (len <= 33 && useCustomBigDecimalParser)
             bd = BigDecimalUtils.parseString(str)
         if (bd == null)
             bd = BigDecimal(str)
@@ -138,7 +138,7 @@ actual class Deci : Number, Comparable<Deci> {
             }
         }
         var bd: BigDecimal? = null
-        if (len <= 33)
+        if (len <= 33 && useCustomBigDecimalParser)
             bd = BigDecimalUtils.parseCharArray(chars, offset, length)
         if (bd == null)
             bd = BigDecimal(chars, offset, length)
@@ -637,6 +637,7 @@ actual class Deci : Number, Comparable<Deci> {
     actual companion object {
         private val originalDefaultDeciContext: DeciContext = DeciContextImpl(20, RoundingMode.HALF_UP, 20)
         actual var defaultDeciContext: DeciContext = originalDefaultDeciContext
+        private val useCustomBigDecimalParser = true // is 2x faster
 
         // few popular numbers
         actual val ZERO = Deci(0L).apply { toBigDecimal() }
@@ -654,6 +655,7 @@ actual class Deci : Number, Comparable<Deci> {
         private const val FLAG_TINY_DEC4: Int = 1 shl 30 // tinyDec is TinyDec4d, not TinyDec
         private const val FLAG_RESERVED: Int = 1 shl 31 // not for use (first bit, need to review)
 
+        @JvmStatic
         actual fun valueOf(int: Int): Deci {
             return if (int in 0..1000 && defaultDeciContext == originalDefaultDeciContext) {
                 when (int) {
@@ -669,6 +671,7 @@ actual class Deci : Number, Comparable<Deci> {
             else Deci(int)
         }
 
+        @JvmStatic
         actual fun valueOf(long: Long): Deci {
             return if (long in 0L..1000L && defaultDeciContext == originalDefaultDeciContext) {
                 when (long) {

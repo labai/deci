@@ -57,10 +57,10 @@ object BigDecimalUtils {
     private fun nibblesToBinary(nibbleLong: Long): Long {
         var result = (nibbleLong ushr 60) and 0xF
         var shift = 48
-        while (shift >= 0) {
+        do {
             result = result * 1000 + DEC_HEX_MAP[((nibbleLong ushr shift) and 0xFFF).toInt()]
             shift -= 12
-        }
+        } while (shift >= 0)
         return result
     }
 
@@ -90,10 +90,11 @@ object BigDecimalUtils {
     ): BigDecimal? {
 
         var start = offset
-        val negative = when (charGetFn(offset)) {
-            '-' -> { start = offset + 1; true }
-            '+' -> { start = offset + 1; false }
-            else -> false
+        val negative: Boolean
+        when (charGetFn(offset)) {
+            '-' -> { start = offset + 1; negative = true }
+            '+' -> { start = offset + 1; negative = false }
+            else -> negative = false
         }
         val endExcl = offset + length
 
@@ -126,7 +127,7 @@ object BigDecimalUtils {
 
         // trim trailing zeros
         if (dot >= 0) {
-            while (digitCount > dot && digitCount > 16 && (buf and 0xF) == 0L) {
+            while (digitCount > dot && (buf and 0xF) == 0L && digitCount > 16) {
                 buf = buf ushr 4
                 digitCount--
             }
