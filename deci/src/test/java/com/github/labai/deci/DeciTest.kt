@@ -128,9 +128,37 @@ class DeciTest {
     }
 
     @Test
+    fun test_fromString() {
+        assertEquals("-1.1", Deci("-1.10").toString())
+        assertEquals("-1.10001", Deci("-1.100010").toString())
+        assertEquals("-1000000000.10001", Deci("-1000000000.10001").toString()) // our parser
+        assertEquals("-10000000001000000000100000000010.10001", Deci("-10000000001000000000100000000010.10001").toString()) // native parser
+    }
+
+    @Test
+    fun test_fromCharArray() {
+        fun checkValues(expected: String, source: String) = assertEquals(expected, Deci(source.toCharArray(), 0, source.length).toString())
+        checkValues("-1.1", "-1.10")
+        checkValues("-1.10001", "-1.100010")
+        checkValues("-1000000000.10001", "-1000000000.10001") // our parser
+        checkValues("-10000000001000000000100000000010.10001", "-10000000001000000000100000000010.10001") // native parser
+
+        // check offset
+        val str = "123456.7890"
+        assertEquals("23456", Deci(str.toCharArray(), 1, 6).toString())
+    }
+
+    @Test
     fun test_int_long() {
         assertDecEquals(10.deci, 5.deci + 5)
         assertDecEquals(10.deci, 5.deci + 5L)
+    }
+
+    @Test
+    fun test_negate() {
+        assertDecEquals((-10).deci, -(10.deci))
+        assertDecEquals(10.deci, -((-10).deci))
+        assertDecEquals(0.deci, -(0.deci))
     }
 
     @Test
@@ -333,6 +361,37 @@ class DeciTest {
     fun test_orZero() {
         val num: Deci? = null
         assertEquals(0.deci, num.orZero())
+    }
+
+    @Test
+    fun test_fromString_equal() {
+        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+
+        val strings = listOf(
+            "1",
+            "1.1",
+            "-1.1",
+            "-0.00001",
+        )
+        for (s in strings) {
+            assertEquals(s, Deci(s, ctx4).toString())
+        }
+    }
+
+    @Test
+    fun test_fromString_notEqual() {
+        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+
+        val pairs = listOf(
+            "0.10001" to "0.1", // rounded by deciContext
+            ".1" to "0.1",
+            "0.10" to "0.1",
+            "-.1" to "-0.1",
+            "1." to "1",
+        )
+        for ((decStr, expectedStr) in pairs) {
+            assertEquals(expectedStr, Deci(decStr, ctx4).toString())
+        }
     }
 
     @Test

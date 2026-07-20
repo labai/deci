@@ -75,20 +75,49 @@ import kotlin.toBigDecimal
  *   DeciContext(20, HALF_UP, 20)
  *
  */
-class Deci @JvmOverloads constructor(decimal: BigDecimal, val deciContext: DeciContext = defaultDeciContext) : Number(), Comparable<Deci> {
+class Deci(decimal: BigDecimal, val deciContext: DeciContext) : Number(), Comparable<Deci> {
 
-    constructor(str: String) : this(BigDecimal(str))
-    constructor(int: Int) : this(BigDecimal(int))
-    constructor(long: Long) : this(long.toBigDecimal())
+    // BigDecimal
+    constructor(decimal: BigDecimal) : this(decimal, defaultDeciContext)
+
+    // Int
+    constructor(int: Int, deciContext: DeciContext) : this(BigDecimal(int), deciContext)
+    constructor(int: Int) : this(BigDecimal(int), defaultDeciContext)
+
+    // Long
+    constructor(long: Long, deciContext: DeciContext) : this(long.toBigDecimal(), deciContext)
+    constructor(long: Long) : this(long, defaultDeciContext)
+
+    // String
+    constructor(str: String, deciContext: DeciContext) : this(
+        if (str.length <= 33) {
+            BigDecimalUtils.parseString(str) ?: BigDecimal(str)
+        } else {
+            BigDecimal(str)
+        },
+        deciContext
+    )
+    constructor(str: String) : this(str, defaultDeciContext)
+
+    // CharArray
+    constructor(chars: CharArray, offset: Int, length: Int, deciContext: DeciContext) : this (
+        if (length <= 33) {
+            BigDecimalUtils.parseCharArray(chars, offset, length) ?: BigDecimal(chars, offset, length)
+        } else {
+            BigDecimal(chars, offset, length)
+        },
+        deciContext
+    )
+    constructor(chars: CharArray, offset: Int, length: Int) : this(chars, offset, length, defaultDeciContext)
 
     data class DeciContext(val scale: Int, val roundingMode: RoundingMode, val precision: Int) : Serializable {
         constructor(scale: Int, roundingMode: RoundingMode = HALF_UP) : this(scale, roundingMode, scale)
 
         init {
             check(scale >= 0) { "scale must be >= 0 (is $scale)" }
-            check(scale <= 2000) { "scale must be <= 2000 (is $scale)" }
+            check(scale <= 200) { "scale must be <= 200 (is $scale)" }
             check(precision >= 1) { "precision must be >= 1 (is $precision)" }
-            check(precision <= 2000) { "precision must be <= 2000 (is $precision)" }
+            check(precision <= 200) { "precision must be <= 200 (is $precision)" }
         }
 
         override fun toString(): String = "DeciContext($scale:$precision:${roundingMode.toString().lowercase()})"
@@ -171,20 +200,46 @@ class Deci @JvmOverloads constructor(decimal: BigDecimal, val deciContext: DeciC
     internal fun remInternal(other: Deci): Deci = Deci(decimal.remainder(other.decimal), deciContext)
 
     companion object {
-        internal val defaultDeciContext = DeciContext(20, HALF_UP, 20)
+        private val originalDefaultDeciContext: DeciContext = DeciContext(20, HALF_UP, 20)
+        internal val defaultDeciContext = originalDefaultDeciContext
 
-        private val d0 = Deci(0L)
+        private val ZERO = Deci(0L)
+        private val D1 = Deci(1L)
+        private val D2 = Deci(2L)
+        private val D10 = Deci(10L)
+        private val D100 = Deci(100L)
+        private val D1000 = Deci(1000L)
 
+        @JvmStatic
         fun valueOf(int: Int): Deci {
-            return when (int) {
-                0 -> d0
-                in 1..10 -> Deci(int.toLong()) // reuse cached bigDecimal
-                else -> Deci(int)
+            return if (int in 0..1000 && defaultDeciContext == originalDefaultDeciContext) {
+                when (int) {
+                    0 -> ZERO
+                    1 -> D1
+                    2 -> D2
+                    10 -> D10
+                    100 -> D100
+                    1000 -> D1000
+                    else -> Deci(int)
+                }
             }
+            else Deci(int)
         }
 
+        @JvmStatic
         fun valueOf(long: Long): Deci {
-            return if (long == 0L) d0 else Deci(long)
+            return if (long in 0L..1000L && defaultDeciContext == originalDefaultDeciContext) {
+                when (long) {
+                    0L -> ZERO
+                    1L -> D1
+                    2L -> D2
+                    10L -> D10
+                    100L -> D100
+                    1000L -> D1000
+                    else -> Deci(long)
+                }
+            }
+            else Deci(long)
         }
     }
 }
