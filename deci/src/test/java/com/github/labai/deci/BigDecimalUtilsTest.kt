@@ -66,7 +66,6 @@ class BigDecimalUtilsTest {
             "10.00",
             "-000.100",
 
-
             // --- trailing zeros that cross the 16-digit boundary (Bug 2) ---
             "1234567890123456.000",     // exactly 16 int digits + trimmed decimals
             "1234567890123456.100",     // 16 int digits + non-trimmable decimal
@@ -98,7 +97,7 @@ class BigDecimalUtilsTest {
             // lots of trailing zeros after dot, single nonzero digit
             "1.0000000000000001",        // 1 + 16 frac digits, forces split, last digit nonzero
             "1.00000000000000010",       // same + one more trailing zero to trim
-        ]
+        ],
     )
     fun test_valid(str: String) {
         val bd = BigDecimalUtils.parseString(str)
@@ -113,13 +112,12 @@ class BigDecimalUtilsTest {
             "0.10000000000000000000000000000000",   // trailing zeros
             "1.00000000000000000000000000000000",   // trailing zeros
             "12345678901234567890123456789012.0",   // 32 digits + trimmable decimal
-        ]
+        ],
     )
     fun test_invalid_todoImprove(str: String) {
         val bd = BigDecimalUtils.parseString(str)
         assertNull(bd)
     }
-
 
     @ParameterizedTest
     @CsvSource(
@@ -135,7 +133,7 @@ class BigDecimalUtilsTest {
             ".",
             "-.",
             "+.",
-        ]
+        ],
     )
     fun test_invalid(str: String) {
         val bd = BigDecimalUtils.parseString(str)

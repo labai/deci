@@ -98,7 +98,7 @@ class Deci(decimal: BigDecimal, val deciContext: DeciContext) : Number(), Compar
         } else {
             BigDecimal(str)
         },
-        deciContext
+        deciContext,
     )
     constructor(str: String) : this(str, defaultDeciContext)
 
@@ -109,7 +109,7 @@ class Deci(decimal: BigDecimal, val deciContext: DeciContext) : Number(), Compar
         } else {
             BigDecimal(chars, offset, length)
         },
-        deciContext
+        deciContext,
     )
     constructor(chars: CharArray, offset: Int, length: Int) : this(chars, offset, length, defaultDeciContext)
 
@@ -188,23 +188,31 @@ class Deci(decimal: BigDecimal, val deciContext: DeciContext) : Number(), Compar
     // for internal usage - explicitly call to avoid recursive loops by mistake
     @JvmSynthetic
     internal fun plusInternal(other: BigDecimal): Deci = Deci(decimal.add(other), deciContext)
+
     @JvmSynthetic
     internal fun minusInternal(other: BigDecimal): Deci = Deci(decimal.subtract(other), deciContext)
+
     @JvmSynthetic
     internal fun timesInternal(other: BigDecimal): Deci = Deci(decimal.multiply(other), deciContext)
+
     @JvmSynthetic
     internal fun divInternal(other: BigDecimal): Deci = Deci(decimal.divide(other, calcDivScale(other), deciContext.roundingMode), deciContext)
+
     @JvmSynthetic
     internal fun remInternal(other: BigDecimal): Deci = Deci(decimal.remainder(other), deciContext)
 
     @JvmName("plus")
     internal fun plusInternal(other: Deci): Deci = Deci(decimal.add(other.decimal), deciContext)
+
     @JvmName("minus")
     internal fun minusInternal(other: Deci): Deci = Deci(decimal.subtract(other.decimal), deciContext)
+
     @JvmName("times")
     internal fun timesInternal(other: Deci): Deci = Deci(decimal.multiply(other.decimal), deciContext)
+
     @JvmName("div")
     internal fun divInternal(other: Deci): Deci = Deci(decimal.divide(other.decimal, calcDivScale(other.decimal), deciContext.roundingMode), deciContext)
+
     @JvmName("rem")
     internal fun remInternal(other: Deci): Deci = Deci(decimal.remainder(other.decimal), deciContext)
 
@@ -236,13 +244,12 @@ class Deci(decimal: BigDecimal, val deciContext: DeciContext) : Number(), Compar
                     1000L -> D1000
                     else -> Deci(long)
                 }
-            }
-            else Deci(long)
+            } else Deci(long)
         }
 
         @JvmStatic
         fun valueOf(str: String): Deci {
-            return Deci(str);
+            return Deci(str)
         }
     }
 }
