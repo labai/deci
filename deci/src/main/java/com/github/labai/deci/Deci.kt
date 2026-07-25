@@ -77,6 +77,9 @@ import kotlin.toBigDecimal
  */
 class Deci(decimal: BigDecimal, val deciContext: DeciContext) : Number(), Comparable<Deci> {
 
+    @Volatile
+    private var normalizedString: String? = null
+
     // BigDecimal
     constructor(decimal: BigDecimal) : this(decimal, defaultDeciContext)
 
@@ -137,7 +140,6 @@ class Deci(decimal: BigDecimal, val deciContext: DeciContext) : Number(), Compar
     operator fun unaryMinus(): Deci = Deci(decimal.negate(), deciContext)
 
     override fun toByte(): Byte = decimal.toByte()
-
     override fun toDouble(): Double = decimal.toDouble()
     override fun toFloat(): Float = decimal.toFloat()
     override fun toInt(): Int = decimal.toInt()
@@ -153,7 +155,14 @@ class Deci(decimal: BigDecimal, val deciContext: DeciContext) : Number(), Compar
 
     override fun compareTo(other: Deci): Int = decimal.compareTo(other.decimal)
 
-    override fun toString(): String = decimal.stripTrailingZeros().toPlainString()
+    override fun toString(): String {
+        var s = normalizedString
+        if (s != null)
+            return s
+        s = decimal.stripTrailingZeros().toPlainString()
+        normalizedString = s
+        return s
+    }
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -163,7 +172,7 @@ class Deci(decimal: BigDecimal, val deciContext: DeciContext) : Number(), Compar
     }
 
     override fun hashCode(): Int {
-        return decimal.stripTrailingZeros().hashCode()
+        return toString().hashCode()
     }
 
     @JvmSynthetic
@@ -212,18 +221,7 @@ class Deci(decimal: BigDecimal, val deciContext: DeciContext) : Number(), Compar
 
         @JvmStatic
         fun valueOf(int: Int): Deci {
-            return if (int in 0..1000 && defaultDeciContext == originalDefaultDeciContext) {
-                when (int) {
-                    0 -> ZERO
-                    1 -> D1
-                    2 -> D2
-                    10 -> D10
-                    100 -> D100
-                    1000 -> D1000
-                    else -> Deci(int)
-                }
-            }
-            else Deci(int)
+            return valueOf(int.toLong())
         }
 
         @JvmStatic
@@ -240,6 +238,11 @@ class Deci(decimal: BigDecimal, val deciContext: DeciContext) : Number(), Compar
                 }
             }
             else Deci(long)
+        }
+
+        @JvmStatic
+        fun valueOf(str: String): Deci {
+            return Deci(str);
         }
     }
 }
@@ -270,9 +273,7 @@ operator fun Deci.rem(other: Long): Deci = this.remInternal(other.toBigDecimal()
 
 infix fun Deci?.round(scale: Int): Deci? = this?.round(scale)
 infix fun Deci?.eq(other: Deci?): Boolean = if (this == null || other == null) this == other else this.compareTo(other) == 0
-infix fun Deci?.eq(other: BigDecimal?): Boolean =
-    if (this == null || other == null) (this == null && other == null) else this.toBigDecimal().compareTo(other) == 0
-
+infix fun Deci?.eq(other: BigDecimal?): Boolean = if (this == null || other == null) (this == null && other == null) else this.toBigDecimal().compareTo(other) == 0
 infix fun Deci?.eq(other: Number?): Boolean = if (this == null || other == null) (this == null && other == null) else this.compareTo(other) == 0
 
 fun Deci?.toBigDecimal(): BigDecimal? = this?.toBigDecimal()

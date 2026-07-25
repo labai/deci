@@ -16,8 +16,8 @@ import kotlin.time.measureTime
 class DeciPerfTest {
 
     // jvm25
-    // Java native BigDec  : time=761
-    // Deci parser         : time=310
+    // Java native BigDec  : time=755
+    // Deci parser         : time=295
     @Disabled
     @Test
     fun test_perf_bigDec_fromString() {
@@ -51,6 +51,7 @@ class DeciPerfTest {
             }
             n
         }
+
         println("BigDecimal:")
         runTestFn(testFn1)
         println("Deci parser:")
@@ -63,11 +64,11 @@ class DeciPerfTest {
         var n = 1
 
         // warmup
-        for (i in 1..5) {
+        for (i in 1..3) {
             testFn()
         }
 
-        for (i in 1..5) {
+        for (i in 1..4) {
             val tinyTm = measureTime {
                 n += testFn()
             }

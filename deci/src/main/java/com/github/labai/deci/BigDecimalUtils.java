@@ -5,12 +5,18 @@ Copyright (c) 2026 Augustus
 
 package com.github.labai.deci;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteOrder;
 
 /**
  * @author Augustus
  * created on 2026-07-01
+ *
+ * parseString is faster than standard BigDecimal parser
+ *
  */
 class BigDecimalUtils {
 
@@ -20,7 +26,6 @@ class BigDecimalUtils {
     private static final short[] DEC_HEX_MAP = buildDecHexMap();
 
     private static short[] buildDecHexMap() {
-        // size 9*256+9*16+10
         short[] map = new short[2458];
         for (int i = 0; i <= 9; i++) {
             for (int j = 0; j <= 9; j++) {
@@ -54,7 +59,7 @@ class BigDecimalUtils {
         1000000000000000000L,  // 18 / 10^18
     };
 
-    // private static final VarHandle LONG_BE_VH = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.BIG_ENDIAN);
+    private static final VarHandle LONG_BE_VH = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.BIG_ENDIAN);
 
     static BigDecimal parseString(String str) {
         if (str.isEmpty()) return null;
@@ -69,10 +74,10 @@ class BigDecimalUtils {
 
     // decode a 16-nibble packed-decimal long into its binary value.
     private static long nibblesToBinary(long nibbleLong) {
-        long result = (nibbleLong >>> 60) & 0xF;
+        long result = nibbleLong >>> 60;
         int shiftAmt = 48;
         do {
-            result = result * 1000 + DEC_HEX_MAP[(int) ((nibbleLong >>> shiftAmt) & 0xFFF)];
+            result = result * 1000 + DEC_HEX_MAP[((int) (nibbleLong >>> shiftAmt) & 0xFFF)];
             shiftAmt -= 12;
         } while (shiftAmt >= 0);
         return result;
@@ -89,15 +94,13 @@ class BigDecimalUtils {
 
         // copy longs to bytes
         byte[] bytes = new byte[16];
-        for (int i = 0; i < 8; i++) {
-            bytes[i] = (byte) (sumHigh >>> (8 * (7 - i)));
-        }
-        for (int i = 0; i < 8; i++) {
-            bytes[8 + i] = (byte) (sumLow >>> (8 * (7 - i)));
-        }
-        // alternative approach is slightly faster (few %)
-        // LONG_BE_VH.set(bytes, 0, sumHigh);
-        // LONG_BE_VH.set(bytes, 8, sumLow);
+        // alternative naive approach is slightly slower (few %), but can work on Java 1.8
+        // for (int i = 0; i < 8; i++) {bytes[i] = (byte) (sumHigh >>> (8 * (7 - i)));}
+        // for (int i = 0; i < 8; i++) {bytes[8 + i] = (byte) (sumLow >>> (8 * (7 - i)));}
+
+        // copy longs to bytes
+        LONG_BE_VH.set(bytes, 0, sumHigh);
+        LONG_BE_VH.set(bytes, 8, sumLow);
         return new BigInteger(negative ? -1 : 1, bytes);
     }
 
@@ -138,7 +141,7 @@ class BigDecimalUtils {
             if (c >= '0' && c <= '9') {
                 if (digitCount >= 32)
                     return null;
-                buf = (buf << 4) + (c - '0');
+                buf = (buf << 4) | (c - '0');
                 digitCount++;
                 if (digitCount == 16) { // switch to 2 longs
                     buf2 = buf;
@@ -186,5 +189,4 @@ class BigDecimalUtils {
 
         return new BigDecimal(unscaled, pos);
     }
-
 }
