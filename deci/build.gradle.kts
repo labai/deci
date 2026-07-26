@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.github.labai"
-version = "0.1.1"
+version = "2.0.0"
 
 kotlin {
     jvm()
