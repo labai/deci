@@ -11,7 +11,7 @@ import kotlin.test.assertEquals
  * created on 2020.11.29
  */
 class JacksonDeciTest {
-    val objectMapper: ObjectMapper
+    var objectMapper: ObjectMapper
     init {
         objectMapper = ObjectMapper()
         objectMapper.registerModule(JacksonDeciRegister.deciTypeModule())
@@ -43,15 +43,31 @@ class JacksonDeciTest {
     }
 
     @Test
-    fun test_jackson() {
+    fun test_jackson_small() {
         val d = Data1()
         d.deci = Deci("-12.345")
         d.str = "abra"
         val json = objectMapper.writeValueAsString(d)
         println(json)
         assertEquals("""{"deci":-12.345,"str":"abra"}""", json)
-        val d2 = objectMapper.readValue(json, Data1::class.java)
+        val json2 = """{"deci": ${'\t'} -12.345 ${'\n'},"str":"abra"}"""
+        val d2 = objectMapper.readValue(json2, Data1::class.java)
         println(d2)
         assertEquals("Data1(deci=-12.345, str=abra)", d2.toString())
+    }
+
+    @Test
+    fun test_jackson_big() {
+        val d = Data1()
+        d.deci = Deci("-1100100100.00000001")
+        d.str = "abra"
+        d.deci!!
+        val json = objectMapper.writeValueAsString(d)
+        println(json)
+        assertEquals("""{"deci":-1100100100.00000001,"str":"abra"}""", json)
+        val json2 = """{"deci": ${'\t'} -1100100100.00000001 ${'\n'},"str":"abra"}"""
+        val d2 = objectMapper.readValue(json2, Data1::class.java)
+        println(d2)
+        assertEquals("Data1(deci=-1100100100.00000001, str=abra)", d2.toString())
     }
 }

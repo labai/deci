@@ -99,8 +99,15 @@ class DeciCommonTest {
     }
 
     @Test
+    fun common_negate() {
+        assertDecEquals((-10).deci, -(10.deci))
+        assertDecEquals(10.deci, -((-10).deci))
+        assertDecEquals(0.deci, -(0.deci))
+    }
+
+    @Test
     fun common_valueOf_withContext() {
-        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+        val ctx4 = DeciContext.of(scale = 4, roundingMode = HALF_UP, precision = 3)
 
         assertEquals(0.deci, Deci.valueOf(0, ctx4))
         assertEquals(0.deci, Deci.valueOf(0L, ctx4))
@@ -112,12 +119,12 @@ class DeciCommonTest {
         assertEquals(2.deci, Deci.valueOf(2L, ctx4))
         assertEquals(2.deci, Deci.valueOf("2", ctx4))
 
-        assertEquals(ctx4, Deci.valueOf(2.deci, ctx4).deciContext)
-        assertEquals(ctx4, Deci.valueOf(2.toByte(), ctx4).deciContext)
-        assertEquals(ctx4, Deci.valueOf(2.toShort(), ctx4).deciContext)
-        assertEquals(ctx4, Deci.valueOf(2, ctx4).deciContext)
-        assertEquals(ctx4, Deci.valueOf(2L, ctx4).deciContext)
-        assertEquals(ctx4, Deci.valueOf("2", ctx4).deciContext)
+        assertCtxEquals(ctx4, Deci.valueOf(2.deci, ctx4).deciContext)
+        assertCtxEquals(ctx4, Deci.valueOf(2.toByte(), ctx4).deciContext)
+        assertCtxEquals(ctx4, Deci.valueOf(2.toShort(), ctx4).deciContext)
+        assertCtxEquals(ctx4, Deci.valueOf(2, ctx4).deciContext)
+        assertCtxEquals(ctx4, Deci.valueOf(2L, ctx4).deciContext)
+        assertCtxEquals(ctx4, Deci.valueOf("2", ctx4).deciContext)
     }
 
     @Test
@@ -132,15 +139,27 @@ class DeciCommonTest {
     }
 
     @Test
-    fun common_hashcode() {
+    fun common_hashcode_smaller() {
         val list = (0..5).map { Deci("$it.${it}000") }
-        val map = list.map { it to it * 10 }.toMap()
+        val map = list.associate { it to it * 10 }
         // searching in map uses hashcode
         assertEquals(22.deci, map[Deci("2.2")])
         // should be cached
         val d = 22.deci
         assertTrue(d.hashCode() === d.hashCode())
     }
+
+    @Test
+    fun common_hashcode_bigger() {
+        val list = (0..5).map { Deci("${it}000000000.${it}000") }
+        val map = list.associate { it to it * 10 }
+        // searching in map uses hashcode
+        assertEquals(20000000002L.deci, map[Deci("2000000000.2")])
+        // should be cached
+        val d = 20000000002L.deci
+        assertEquals(d.hashCode(), d.hashCode())
+    }
+
 
     @Test
     fun common_exceptions() {
@@ -159,11 +178,11 @@ class DeciCommonTest {
     fun common_deciContext() {
         // should keep first operator DeciContext
 
-        val d1 = Deci("1.2", DeciContext(55))
+        val d1 = Deci("1.2", DeciContext.of(55, HALF_UP))
         val d2 = d1 / 7.deci
         assertEquals(55, d2.deciContext.scale)
 
-        val d3 = Deci("1.192", DeciContext(1, DOWN, 1))
+        val d3 = Deci("1.192", DeciContext.of(1, DOWN, 1))
         assertEquals("1.1", d3.toString()) // rounded down
     }
 
@@ -191,10 +210,10 @@ class DeciCommonTest {
 
     @Test
     fun common_applyDeciContext() {
-        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+        val ctx4 = DeciContext.of(scale = 4, roundingMode = HALF_UP, precision = 3)
         val dec1 = Deci.valueOf("1.0123456789")
         val res = dec1.applyDeciContext(ctx4)
-        assertEquals(ctx4, res.deciContext)
+        assertCtxEquals(ctx4, res.deciContext)
         assertEquals("1.0123", res.toString())
     }
 
@@ -260,4 +279,8 @@ class DeciCommonTest {
 
     private fun assertDecEquals(dec1: Deci, dec2: Deci) = assertTrue(dec1 eq dec2, "Decimals are not equal ($dec1 vs $dec2)")
     private fun assertDecEquals(dec1: String, dec2: Deci) = assertTrue(Deci(dec1) eq dec2, "Decimals are not equal ($dec1 vs $dec2)")
+
+    private fun assertCtxEquals(ctx1: DeciContext, ctx2: DeciContext): Boolean {
+        return ctx1.scale == ctx2.scale && ctx1.roundingMode == ctx2.roundingMode && ctx1.precision == ctx2.precision
+    }
 }

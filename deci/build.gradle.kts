@@ -24,6 +24,14 @@ kotlin {
             implementation(libs.kotlin.test)
         }
 
+        jvmTest.dependencies {
+            implementation("org.junit.jupiter:junit-jupiter-api:5.5.2")
+            implementation("org.junit.jupiter:junit-jupiter-params:5.5.2")
+
+            // expected better performance, but is slower than native jdk...
+            implementation("ch.randelshofer:fastdoubleparser:2.0.1")
+        }
+
         jsMain.dependencies {
             implementation(npm("decimal.js", "10.6.0"))
         }
@@ -34,6 +42,9 @@ kotlin {
     }
 }
 
+tasks.named<Test>("jvmTest") {
+    useJUnitPlatform()
+}
 // need to set up rules
 // apply(plugin = "org.jlleitschuh.gradle.ktlint")
 

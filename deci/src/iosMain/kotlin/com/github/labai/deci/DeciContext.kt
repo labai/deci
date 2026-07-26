@@ -30,15 +30,41 @@ import platform.Foundation.NSRoundingMode
  * @author Augustus
  * created on 2026-01-01
 */
-actual data class DeciContext actual constructor(
-    actual val scale: Int,
-    actual val roundingMode: RoundingMode,
+actual interface DeciContext {
+    actual val scale: Int
+    actual val roundingMode: RoundingMode
     actual val precision: Int
-) {
 
-    actual constructor(scale: Int, roundingMode: RoundingMode) : this(scale, roundingMode, scale)
+    fun withConfig(config: DeciContextConfig): DeciContext
+    val config: DeciContextConfig
 
-    init {
+    actual companion object {
+        actual fun of(scale: Int, roundingMode: RoundingMode, precision: Int): DeciContext {
+            return DeciContextImpl(scale, roundingMode, precision)
+        }
+
+        actual fun of(scale: Int, roundingMode: RoundingMode): DeciContext {
+            return DeciContextImpl(scale, roundingMode)
+        }
+
+        actual fun of(scale: Int): DeciContext {
+            return DeciContextImpl(scale, RoundingMode.HALF_UP)
+        }
+    }
+
+}
+
+internal class DeciContextImpl : DeciContext {
+    override val scale: Int
+    override val roundingMode: RoundingMode
+    override val precision: Int
+
+    constructor(scale: Int, roundingMode: RoundingMode) : this(scale, roundingMode, scale)
+
+    constructor(scale: Int, roundingMode: RoundingMode, precision: Int) {
+        this.scale = scale
+        this.roundingMode = roundingMode
+        this.precision = precision
         // Native supports only 38 precision
         check(scale >= 0) { "scale must be >= 0 (is $scale)" }
         check(scale <= 38) { "scale must be <= 38 (is $scale)" } // here may be more, but most likely it is not real case
@@ -48,14 +74,12 @@ actual data class DeciContext actual constructor(
 
     override fun toString(): String = "DeciContext($scale:$precision:${roundingMode})"
 
-    actual constructor(scale: Int) : this(scale, RoundingMode.HALF_UP)
-
     @Suppress("UNNECESSARY_SAFE_CALL") // is undefined while initiating Deci.defaultDeciContex itself
-    var config: DeciContextConfig = Deci.defaultDeciContext?.config ?: DeciContextConfig()
+    override var config: DeciContextConfig = Deci.defaultDeciContext?.config ?: DeciContextConfig()
         private set
 
-    fun withConfig(config: DeciContextConfig): DeciContext {
-        val ctx = DeciContext(scale, roundingMode, precision)
+    override fun withConfig(config: DeciContextConfig): DeciContext {
+        val ctx = DeciContextImpl(scale, roundingMode, precision)
         ctx.config = config
         return ctx
     }

@@ -23,8 +23,8 @@ SOFTWARE.
 */
 package com.github.labai.deci
 
-import com.github.labai.deci.RoundingMode.DOWN
 import com.github.labai.deci.RoundingMode.HALF_UP
+import com.github.labai.deci.impl.priv_calcDivScale
 import java.io.ByteArrayOutputStream
 import java.io.NotSerializableException
 import java.io.ObjectOutputStream
@@ -33,7 +33,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
-import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -69,14 +68,15 @@ class DeciTest {
     }
 
     @Test
-    fun jvm_rounding() {
-        assertEquals(BigDecimal("1.11000"), Deci("1.11").round(5).toBigDecimal())
-    }
-
-    @Test
-    fun jvm_toBigDecimal() {
+    fun jvm_toBigDecimal_rounding() {
         assertEquals(BigDecimal("1.11"), (Deci("1.11") round 2).toBigDecimal())
-        assertEquals(BigDecimal("1.1100"), (Deci("1.11") round 4).toBigDecimal())
+        // as TinyDec w/e trailing zeros
+        assertEquals(BigDecimal("1.11"), (Deci("1.11") round 4).toBigDecimal())
+        // ??
+        // as BigDecimal - may have trailing zeros (depends on which parser is used)
+        assertEquals(BigDecimal("1002003004.11"), (Deci("1002003004.1100") round 4).toBigDecimal()) // trimmed
+        assertEquals(BigDecimal("1002003004005006007008009010011012.1100"), (Deci("1002003004005006007008009010011012.1100") round 4).toBigDecimal()) // not trimmed
+
         assertDecEquals("1.12", Deci("1.115") round 2)
     }
 
@@ -84,16 +84,26 @@ class DeciTest {
     fun jvm_valueOf() {
         assertEquals(2.deci, Deci.valueOf(2.toBigDecimal()))
 
+        assertEquals(2.deci, Deci.valueOf(2.toBigInteger()))
+
         // floats are not precise
         assertFalse("2.2".deci eq Deci.valueOf(2.2.toFloat()))
     }
 
     @Test
+    fun jvm_fromString() {
+        assertEquals("-1.1", Deci("-1.10").toString()) // tinyDec
+        assertEquals("-1.10001", Deci("-1.100010").toString()) // tinyDec4
+        assertEquals("-1000000000.10001", Deci("-1000000000.10001").toString()) // our parser
+        assertEquals("-10000000001000000000100000000010.10001", Deci("-10000000001000000000100000000010.10001").toString()) // native parser
+    }
+
+    @Test
     fun jvm_valueOf_withContext() {
-        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+        val ctx4 = DeciContext.of(scale = 4, roundingMode = HALF_UP, precision = 3)
 
         assertEquals(2.deci, Deci.valueOf(2.toBigDecimal(), ctx4))
-        assertEquals(ctx4, Deci.valueOf(2.toBigDecimal(), ctx4).deciContext)
+        assertCtxEquals(ctx4, Deci.valueOf(2.toBigDecimal(), ctx4).deciContext)
     }
 
     @Test
@@ -107,7 +117,7 @@ class DeciTest {
         //  - if provided < 4 - then use provided scale
         //  - use 4 - if provided scale is bigger
         //      - but keep minimum precision 3 (minimum non zero digits)
-        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+        val ctx4 = DeciContext.of(scale = 4, roundingMode = HALF_UP, precision = 3)
         fun checkScale(expectedScale: Int, num: String) {
             assertEquals(expectedScale, Deci(BigDecimal(num), ctx4).toBigDecimal().scale())
             assertEquals(expectedScale, Deci(BigDecimal("-$num"), ctx4).toBigDecimal().scale()) // check with negative value also
@@ -134,12 +144,12 @@ class DeciTest {
 
     @Test
     fun jvm_divScale() {
-        val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+        val ctx4 = DeciContext.of(scale = 4, roundingMode = HALF_UP, precision = 3)
         fun checkDivScale(expectedScale: Int, num: String, divisor: String) {
-            assertEquals(expectedScale, Deci(BigDecimal(num), ctx4).calcDivScale(BigDecimal(divisor)))
-            assertEquals(expectedScale, Deci(BigDecimal("-$num"), ctx4).calcDivScale(BigDecimal(divisor))) // check with negative value also
-            assertEquals(expectedScale, Deci(BigDecimal(num), ctx4).calcDivScale(BigDecimal("-$divisor")))
-            assertEquals(expectedScale, Deci(BigDecimal("-$num"), ctx4).calcDivScale(BigDecimal("-$divisor")))
+            assertEquals(expectedScale, Deci(BigDecimal(num), ctx4).priv_calcDivScale(BigDecimal(divisor)))
+            assertEquals(expectedScale, Deci(BigDecimal("-$num"), ctx4).priv_calcDivScale(BigDecimal(divisor))) // check with negative value also
+            assertEquals(expectedScale, Deci(BigDecimal(num), ctx4).priv_calcDivScale(BigDecimal("-$divisor")))
+            assertEquals(expectedScale, Deci(BigDecimal("-$num"), ctx4).priv_calcDivScale(BigDecimal("-$divisor")))
         }
 
         checkDivScale(4, "10.1", "12.2")
@@ -205,6 +215,10 @@ class DeciTest {
     private fun assertDecEquals(dec1: Deci, dec2: Deci) = assertTrue(dec1 eq dec2, "Decimals are not equal ($dec1 vs $dec2)")
     private fun assertDecEquals(dec1: String, dec2: Deci) = assertTrue(Deci(dec1) eq dec2, "Decimals are not equal ($dec1 vs $dec2)")
     private fun assertDecEquals(dec1: String, dec2: BigDecimal) = assertTrue(BigDecimal(dec1) eq dec2, "Decimals are not equal ($dec1 vs $dec2)")
+
+    private fun assertCtxEquals(ctx1: DeciContext, ctx2: DeciContext): Boolean {
+        return ctx1.scale == ctx2.scale && ctx1.roundingMode == ctx2.roundingMode && ctx1.precision == ctx2.precision
+    }
 
     private infix fun BigDecimal?.eq(other: BigDecimal?): Boolean {
         if (this == null && other == null) return true

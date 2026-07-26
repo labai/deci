@@ -58,7 +58,7 @@ class DeciTest {
     @Test
     fun js_deciContext_default() {
         fun checkRound(expectRound: Boolean) {
-            val ctx4 = DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+            val ctx4 = DeciContext.of(scale = 4, roundingMode = HALF_UP, precision = 3)
             val d1 = Deci(1, ctx4) / 3.deci * 3.deci
             val d2 = Deci(1, ctx4) + "1.00004".deci + "1.00004".deci
             val d3 = Deci(3, ctx4) - "1.00004".deci - "1.00004".deci

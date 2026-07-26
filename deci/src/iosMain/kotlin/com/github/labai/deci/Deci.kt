@@ -115,7 +115,7 @@ actual class Deci : Number, Comparable<Deci> {
     }
 
     actual companion object {
-        internal actual val originalDefaultDeciContext = DeciContext(18, RoundingMode.HALF_UP, 20)
+        internal val originalDefaultDeciContext = DeciContext.of(18, RoundingMode.HALF_UP, 20)
         actual var defaultDeciContext = originalDefaultDeciContext
         actual val ZERO: Deci = Deci("0", defaultDeciContext)
         private val NS_NEGATIVE_ONE = NSDecimalNumber(-1)
