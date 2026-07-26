@@ -1,25 +1,6 @@
 /*
 MIT License
-
 Copyright (c) 2023 Augustus
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 */
 package com.github.labai.deci
 
@@ -27,38 +8,54 @@ import com.github.labai.deci.Deci.DeciContext
 import java.math.BigDecimal
 
 /**
+ * An extension that enables the use of nullable Deci values in math expressions.
+ *
+ * <p>By default, Kotlin does not allow nullable values to be used directly in arithmetic
+ * expressions. To preserve consistent behavior, {@code Deci} also does not allow nullable
+ * values in mathematical operations.
+ *
+ * <p>This extension allows nullable values to participate in expressions by propagating
+ * {@code null}: if any operand in the expression is {@code null}, the result is {@code null}.
+ *
+ * <p><strong>Example:</strong>
+ * <pre>
+ * val num: Deci? = null
+ * val res: Deci? = deciExpr {
+ *     3.deci + 2.deci * num
+ * }
+ * assertNull(res)
+ * </pre>
+ *
+ * <p>A custom {@link DeciContext} can be provided to {@code deciExpr} when a different
+ * scale or precision is required.
+ *
+ * <p><strong>Example:</strong>
+ * <pre>
+ * val ctx40 = DeciContext(scale = 40, roundingMode = HALF_UP, precision = 30)
+ * val res = deciExpr(ctx40) {
+ *     "1.0123456789012345678901234567890123456789".deci * "1e10".deci
+ * }
+ * assertEquals(
+ *     "10123456789.012345678901234567890123456789",
+ *     res.toString()
+ * ) // scale is preserved inside deciExpr
+ * </pre>
+ *
+ * <p>If {@code null} values should be treated as zero instead, use the
+ * {@link Deci#orZero()} extension.
+ *
+ * <p><strong>Example:</strong>
+ * <pre>
+ * val num: Deci? = null
+ * val res: Deci = 3.deci + 2.deci * num.orZero()
+ * assertEquals(3.deci, res)
+ * </pre>
+ *
  * @author Augustus
- *         created on 2023.11.08
- *
- * An extension for using nullable variables in math expression.
- *
- * By default, nullable variables are not allowed to be used in math expressions in kotlin.
- * To keep consistent behaviour, Deci also do not allow nullables in math.
- *
- * This extension allows to use nullables in math expression with such logic,
- * that if any of part is null, then result is null.
- *
- * Example:
- *   val num: Deci? = null
- *   val res: Deci? = deciExpr {
- *      3.deci + 2.deci * num
- *   }
- *   assertNull(res)
- *
- * If needed bigger scale, it can be provided as parameter for deciExpr and will be used inside it.
- *
- * Example:
- *   val ctx40 = DeciContext(scale = 40, roundingMode = HALF_UP, precision = 30)
- *   val res = deciExpr(ctx40) { "1.0123456789012345678901234567890123456789".deci * "1e10".deci }
- *   assertEquals("10123456789.012345678901234567890123456789", dec.toString()) // scale are kept inside deciExpr
- *
- * In case you just want nulls treat as zeros, you can also use an extension Deci?.orZero().
- *
- * Example:
- *   val num: Deci? = null
- *   val res: Deci = 3.deci + 2.deci * num.orZero()
- *   assertEquals(3.deci, res)
- *
+ * @since 2023.11.08
+ * @see Deci
+ * @see DeciContext
+ * @see #deciExpr(DeciContext, kotlin.jvm.functions.Function0)
  */
 class DeciExpr(val deciContext: DeciContext = Deci.defaultDeciContext) {
     operator fun Deci?.unaryMinus(): Deci? = this?.unaryMinus()

@@ -1,25 +1,6 @@
 /*
 MIT License
-
 Copyright (c) 2020 Augustus
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 */
 package com.github.labai.deci
 
@@ -33,47 +14,75 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.toBigDecimal
 
-/*
+/**
+ * A lightweight wrapper around BigDecimal that provides more intuitive
+ * behavior for Kotlin while preserving the precision of BigDecimal.
+ *
+ * <p>Latest version:
+ * <a href="https://github.com/labai/deci/tree/main/deci">
+ * https://github.com/labai/deci/tree/main/deci
+ * </a>
+ *
+ * <p>Main features:
+ * <ul>
+ *   <li>Uses HALF_UP rounding by default
+ *   <li>Produces division results with a high scale (20+)
+ *   <li>Supports arithmetic operators with {@code BigDecimal}, {@code Int}, and {@code Long}
+ *   <li>Equality ({@code ==}) ignores scale (uses {@code compareTo})
+ *   <li>Scale and rounding mode can be configured on the first operand of an expression
+ * </ul>
+ *
+ * <p><strong>Examples:</strong>
+ * <pre>
+ * val d1: Deci = (price * quantity - fee) * 100 / (price * quantity) round 2
+ * val d2: BigDecimal =
+ *     ((1.deci - 1.deci / 365) * (1.deci - 2.deci / 365) round 11).toBigDecimal()
+ * </pre>
+ *
+ * <p>Additional infix functions:
+ * <ul>
+ *   <li>{@code round} – rounds a number to the specified number of decimal places and returns a {@code Deci}
+ *   <li>{@code eq} – compares numbers of various types, including {@code null}
+ * </ul>
+ *
+ * <h3>DeciContext</h3>
+ *
+ * <p>If the default context (scale = 20, precision = 20, rounding mode = HALF_UP)
+ * is not suitable, a custom {@link DeciContext} can be provided.
+ * {@code DeciContext} is similar to, but different from,
+ * {@link java.math.MathContext}.
+ *
+ * <p>{@code DeciContext} contains the following properties:
+ * <ul>
+ *   <li><strong>scale</strong> – the number of digits to keep after the decimal point
+ *   <li><strong>precision</strong> – the minimum number of significant digits to preserve
+ *   <li><strong>roundingMode</strong> – the rounding mode to use
+ * </ul>
+ *
+ * <p><strong>Example:</strong>
+ * <pre>
+ * DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
+ * </pre>
+ *
+ * <p>This configuration means:
+ * <ul>
+ *   <li>Keep 4 digits after the decimal point when possible.
+ *   <li>Preserve at least 3 significant digits for very small numbers.
+ * </ul>
+ *
+ * <p>Examples:
+ * <pre>
+ * 123.1234  -> 123.1234
+ * 0.000123  -> 0.000123
+ * </pre>
+ *
+ * <p>Default context:
+ * <pre>
+ * DeciContext(20, HALF_UP, 20)
+ * </pre>
+ *
  * @author Augustus
- *   com.github.labai
- *   created on 2020.11.18
- *
- * Latest version https://github.com/labai/deci/tree/main/deci
- *
- * wrapped BigDecimal with features:
- *  - use HALF_UP rounding
- *  - division result with high scale (20+)
- *  - math operators with BigDecimal, Int, Long
- *  - equal ('==') ignores scale (uses compareTo)
- *  - scale and rounding mode can be set on first element of formula
- *
- * E.g.
- *  val d1: Deci = (price * quantity - fee) * 100 / (price * quantity) round 2
- *  val d2: BigDecimal = ((1.deci - 1.deci / 365) * (1.deci - 2.deci / 365) round 11).toBigDecimal()
- *
- * Additional infix functions
- *   round - round number by provided number of decimal, return Deci
- *   eq - comparison between numbers (various types, including null)
- *
- * DeciContext
- *
- * In case default scale and rounding (20 and round_up) is not suitable, it is possible to use own setup.
- * When creating Deci, provide additional parameter - DeciContext (similar, but different to MathContext).
- *
- * It has such fields:
- * - scale - indicates, how many digits need to keep after dot
- * - precision - indicates, how many significant digits to keep, when number is small and scale is not enough
- * - roundingMode - rounding mode (java.math.RoundingMode)
- *
- * Example:
- *   DeciContext(scale = 4, roundingMode = HALF_UP, precision = 3)
- *   - means to keep 4 numbers after dot, but not less than 3 significant number, e.g.:
- *      123.1234 - number big enough, keep 4 digits after dot
- *      0.000123 - number is smaller and 4 digits after dot is not enough - keep minimum 3 significant digits
- *
- * Default is
- *   DeciContext(20, HALF_UP, 20)
- *
+ * @since 2020.11.18
  */
 class Deci(decimal: BigDecimal, val deciContext: DeciContext) : Number(), Comparable<Deci> {
 
