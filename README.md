@@ -101,17 +101,14 @@ println(Deci("2.5") / Deci("2") round 1)
 
 Add the Maven dependency:
 
-<details>
-<summary><strong>JVM (maven)</strong></summary>
+## Versions
 
-```xml
-<dependency>
-  <groupId>com.github.labai</groupId>
-  <artifactId>deci-jvm</artifactId>
-  <version>0.1.0</version>
-</dependency>
-```
-</details>
+There are 2 main versions:
+
+### 1) Kotlin multiplatform 
+[deci](../../tree/main/deci) - kotlin multiplatform version adapted for JVM, JavaScript, and iOS, with additional optimizations for small numbers (tinyDec). 
+
+Version numbers: 2.x.x
 
 <details>
 <summary><strong>Gradle for kotlin multiplatform</strong></summary>
@@ -119,19 +116,42 @@ Add the Maven dependency:
 ```kotlin
 sourceSets {
     commonMain.dependencies {
-        implementation("com.github.labai:deci:0.1.0")
+        implementation("com.github.labai:deci:2.0.0")
     }
 }
 ```
 </details>
 
-## Branches
+<details>
+<summary><strong>JVM (maven)</strong></summary>
 
-There are currently three active branches:
-- **jvm-pom** — a simple JVM version with maven. Simple, stable, used in production.
-- **main** — a multiplatform version adapted for JVM, JavaScript, and iOS.
-- **tinydec** — a multiplatform version with additional optimizations 
-that reduce memory usage and improve performance by using *TinyDec* for small numbers.
+```xml
+<dependency>
+  <groupId>com.github.labai</groupId>
+  <artifactId>deci-jvm</artifactId>
+  <version>2.0.0</version>
+</dependency>
+```
+</details>
+
+
+### 2) Simple JVM
+[deci-simple](../../tree/main/deci-simple) - simple JVM version.
+
+Maven only, version numbers: 0.x.x
+
+<details>
+<summary><strong>JVM (maven)</strong></summary>
+
+```xml
+<dependency>
+  <groupId>com.github.labai</groupId>
+  <artifactId>deci</artifactId>
+  <version>0.2.0</version>
+</dependency>
+```
+</details>
+
 
 ## deci.kt
 [more info](../../tree/main/deci) 
