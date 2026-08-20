@@ -15,7 +15,7 @@ import kotlin.test.assertNull
  * @author Augustus
  * created on 2026-07-02
  */
-class BigDecimalUtilsTest {
+class BigDecimalUtilsParseTest {
 
     @Test
     fun test_basic() {

@@ -2,8 +2,10 @@
 MIT License
 Copyright (c) 2026 Augustus
 */
-
 package com.github.labai.deci;
+
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -17,6 +19,10 @@ import java.nio.ByteOrder;
  *
  * parseString is faster than standard BigDecimal parser
  *
+ * decimalToString is faster than standard BigDecimal.toPlainString() with trim
+ *
+ * (for numbers see DeciPerfTest)
+ *
  */
 class BigDecimalUtils {
 
@@ -24,6 +30,10 @@ class BigDecimalUtils {
     }
 
     private static final short[] DEC_HEX_MAP = buildDecHexMap();
+
+    private static final BigInteger TEN_POW_16 = BigInteger.valueOf(10_000_000_000_000_000L);
+    private static final BigInteger LIMIT_32_DIGITS = BigInteger.TEN.pow(32);
+    private static final int[] DIGIT_PAIRS_INT = buildDigitPairsAsInt();
 
     private static short[] buildDecHexMap() {
         short[] map = new short[2458];
@@ -35,6 +45,16 @@ class BigDecimalUtils {
             }
         }
         return map;
+    }
+
+    private static int[] buildDigitPairsAsInt() {
+        int[] pairs = new int[100];
+        for (int i = 0; i < 100; i++) {
+            int a = '0' + (i / 10);
+            int b = '0' + (i % 10);
+            pairs[i] = (a << 16) | b;
+        }
+        return pairs;
     }
 
     private static final long[] TEN_POW = {
@@ -61,16 +81,91 @@ class BigDecimalUtils {
 
     private static final VarHandle LONG_BE_VH = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.BIG_ENDIAN);
 
-    static BigDecimal parseString(String str) {
-        if (str.isEmpty()) return null;
+    @Nullable
+    static BigDecimal parseString(@Nullable String str) {
+        if (str == null || str.isEmpty()) return null;
         return parseStringOrCharArray(str, null, 0, str.length());
     }
 
-    static BigDecimal parseCharArray(char[] chars, int offset, int length) {
+    @Nullable
+    static BigDecimal parseCharArray(@NotNull char[] chars, int offset, int length) {
         if (length == 0 || chars.length < offset + length || offset < 0)
             return null;
         return parseStringOrCharArray(null, chars, offset, length);
     }
+
+    // return decimal in plain string, with trimmed trailing zeros,
+    // (or null in exceptional cases, e.g. number is bigger than 32 digits)
+    @Nullable
+    static String decimalToString(@NotNull BigDecimal decimal) {
+        int scale = decimal.scale();
+        int precision = decimal.precision();
+        if (scale < 0)
+            return null;
+
+        BigInteger unscaled = decimal.unscaledValue();
+        boolean negative = unscaled.signum() < 0;
+        unscaled = negative ? unscaled.negate() : unscaled;
+        boolean leadingIntZero = scale >= precision;
+        int leadingZeros = Math.max(scale - precision, 0);
+        int extraSpace = (scale > 0 ? 1 : 0) + (negative ? 1 : 0) + (leadingIntZero ? 1 : 0);
+
+        int bitLength = unscaled.bitLength();
+
+        if (bitLength >= 107 && unscaled.compareTo(LIMIT_32_DIGITS) >= 0)
+            return null;
+
+        // single long
+        if (bitLength <= 63) {
+            long v = unscaled.longValueExact();
+            char[] buffer = new char[decimalDigitCount(v) + extraSpace + leadingZeros];
+            int dotPos = scale > 0 ? buffer.length - scale - 1 : -1;
+            writeDigitsOf1Long(v, buffer, dotPos, negative);
+            return prepareString(buffer, dotPos, negative);
+        }
+
+        // two longs
+        BigInteger[] qr = unscaled.divideAndRemainder(TEN_POW_16);
+        long high = qr[0].longValueExact(); // <= 16 digits
+        long low = qr[1].longValueExact();  // 16 digits
+        int highDigits = decimalDigitCount(high);
+        char[] buffer = new char[highDigits + 16 + extraSpace + leadingZeros];
+        int dotPos = scale > 0 ? buffer.length - scale - 1 : -1;
+        writeDigitsOf2Longs(high, low, buffer, dotPos, negative);
+        return prepareString(buffer, dotPos, negative);
+    }
+
+    @NotNull
+    static String trimTrailingZeros(@NotNull String str) {
+        int end = -1;
+        boolean stripping = true;
+        boolean dotFound = false;
+
+        for (int i = str.length() - 1; i >= 0; i--) {
+            char c = str.charAt(i);
+
+            if (c == '.') {
+                dotFound = true;
+                if (stripping)
+                    end = i;
+                break;
+            }
+
+            if (stripping) {
+                if (c == '0') {
+                    end = i;
+                } else {
+                    stripping = false;
+                }
+            }
+        }
+
+        return dotFound && end != -1 ? str.substring(0, end) : str;
+    }
+
+    //
+    // private
+    //
 
     // decode a 16-nibble packed-decimal long into its binary value.
     private static long nibblesToBinary(long nibbleLong) {
@@ -138,10 +233,11 @@ class BigDecimalUtils {
         long buf = 0L;
         for (int i = start; i < endExcl; i++) {
             char c = useString ? str.charAt(i) : chars[i];
-            if (c >= '0' && c <= '9') {
+            int n = c - '0';
+            if (n >= 0 && n < 10) {
                 if (digitCount >= 32)
                     return null;
-                buf = (buf << 4) | (c - '0');
+                buf = (buf << 4) | n;
                 digitCount++;
                 if (digitCount == 16) { // switch to 2 longs
                     buf2 = buf;
@@ -159,7 +255,7 @@ class BigDecimalUtils {
 
         // trim trailing zeros
         if (dot >= 0) {
-            while (digitCount > dot && (buf & 0xF) == 0L && digitCount > 16) {
+            while (digitCount > dot && digitCount > 16 && (buf & 0xF) == 0L) {
                 buf = buf >>> 4;
                 digitCount--;
             }
@@ -188,5 +284,110 @@ class BigDecimalUtils {
         BigInteger unscaled = mergeToBigInteger(highVal, lowVal, lowDigits, negative);
 
         return new BigDecimal(unscaled, pos);
+    }
+
+    private static int decimalDigitCount(long x) {
+        if (x < 10000L) {
+            if (x < 10L) return 1;
+            if (x < 100L) return 2;
+            if (x < 1000L) return 3;
+            return 4;
+        }
+        if (x < 10000000000L) {
+            if (x < 100000L) return 5;
+            if (x < 1000000L) return 6;
+            if (x < 10000000L) return 7;
+            if (x < 100000000L) return 8;
+            if (x < 1000000000L) return 9;
+            return 10;
+        }
+        if (x < 100000000000L) return 11;
+        if (x < 1000000000000L) return 12;
+        if (x < 10000000000000L) return 13;
+        if (x < 100000000000000L) return 14;
+        if (x < 1000000000000000L) return 15;
+        if (x < 10000000000000000L) return 16;
+        if (x < 100000000000000000L) return 17;
+        if (x < 1000000000000000000L) return 18;
+        return 19;
+    }
+
+    // write digits from single long to buffer, reserve place for dot
+    private static void writeDigitsOf1Long(long value, char[] buf, int dotPos, boolean negative) {
+        int startPos = writeLongDigits(value, buf, buf.length - 1, dotPos);
+        fillZeros(buf, (negative ? 1 : 0), startPos);
+    }
+
+    // write digits from 2 longs to buffer, reserve place for dot
+    private static void writeDigitsOf2Longs(long high, long low, char[] buf, int dotPos, boolean negative) {
+        int pos = writeLongDigits(low, buf, buf.length - 1, dotPos);
+        int end = buf.length - 1 - 16;
+        if (dotPos >= end) // include dot
+            end--;
+        fillZeros(buf, end, pos);
+
+        pos = writeLongDigits(high, buf, end, dotPos);
+        fillZeros(buf, (negative ? 1 : 0), pos);
+    }
+
+    // write digits from long to buffer, reserve place for dot
+    private static int writeLongDigits(long value, char[] buf, int end, int dotPos) {
+        int pos = end;
+        while (value >= 100) {
+            int idx = (int) (value % 100);
+            value /= 100;
+            int p = DIGIT_PAIRS_INT[idx];
+            buf[pos--] = (char) (p);
+            if (dotPos == pos)
+                pos--;
+            buf[pos--] = (char) (p >>> 16);
+            if (dotPos == pos)
+                pos--;
+        }
+        if (value > 0) {
+            int idx = ((int) value);
+            int p = DIGIT_PAIRS_INT[idx];
+            buf[pos--] = (char) (p);
+            if (dotPos == pos)
+                pos--;
+            if (pos >= 0) {
+                buf[pos--] = (char) (p >>> 16);
+                if (dotPos == pos)
+                    pos--;
+            }
+        }
+        return pos;
+    }
+
+    private static void fillZeros(char[] buf, int startIncl, int endIncl) {
+        for (int i = startIncl; i <= endIncl; i++) {
+            buf[i] = '0';
+        }
+    }
+
+    // prepare decimal string from buffer of digits,
+    // finalize by adding minus, dot, also trim trailing zeros
+    private static String prepareString(char[] buf, int dotPos, boolean negative) {
+        // trim trailing zeros
+        int end;
+        if (dotPos >= 0) {
+            //noinspection StatementWithEmptyBody
+            for (end = buf.length - 1; end > dotPos && buf[end] == '0'; end--)
+                ;
+            if (end == dotPos)
+                end--;
+        } else {
+            end = buf.length - 1;
+        }
+
+        if (negative) {
+            buf[0] = '-';
+        }
+
+        if (dotPos >= 0) {
+            buf[dotPos] = '.';
+        }
+
+        return String.valueOf(buf, 0, end + 1);
     }
 }

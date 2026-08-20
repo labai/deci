@@ -168,7 +168,9 @@ class Deci(decimal: BigDecimal, val deciContext: DeciContext) : Number(), Compar
         var s = normalizedString
         if (s != null)
             return s
-        s = decimal.stripTrailingZeros().toPlainString()
+        val dec = decimal
+        s = BigDecimalUtils.decimalToString(dec)
+            ?: dec.stripTrailingZeros().toPlainString()
         normalizedString = s
         return s
     }
