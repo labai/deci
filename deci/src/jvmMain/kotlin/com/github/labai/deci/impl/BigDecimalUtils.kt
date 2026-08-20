@@ -55,10 +55,10 @@ object BigDecimalUtils {
 
     // decode a 16-nibble packed-decimal Long into its binary value.
     private fun nibblesToBinary(nibbleLong: Long): Long {
-        var result = (nibbleLong ushr 60) and 0xF
+        var result = nibbleLong ushr 60
         var shift = 48
         do {
-            result = result * 1000 + DEC_HEX_MAP[((nibbleLong ushr shift) and 0xFFF).toInt()]
+            result = result * 1000 + DEC_HEX_MAP[((nibbleLong ushr shift).toInt() and 0xFFF)]
             shift -= 12
         } while (shift >= 0)
         return result

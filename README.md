@@ -22,12 +22,6 @@ Additional functions:
 - `eq` – compares numbers of various types (including `null`)
 - `BigDecimal`, `Int`, and `Long` have `.deci` extension functions to convert values to *Deci*
 
-## What it isn't
-Deci does not reinvent math algorithms - at its core, it reuses Java’s `BigDecimal`.
-
-Remark: there is also an optimized Deci implementation in the `tinydec-d4` branch, 
-where small numbers are stored using an `Int`. This can reduce memory usage and improve performance (by up to 2–3x) in most real-world scenarios. This version has not been released yet.
-
 ## Math in code
 
 With _Deci_, you can use operators, making formulas easier to read compared to method calls with _BigDecimal_.
@@ -101,17 +95,14 @@ println(Deci("2.5") / Deci("2") round 1)
 
 Add the Maven dependency:
 
-<details>
-<summary><strong>JVM (maven)</strong></summary>
+## Versions
 
-```xml
-<dependency>
-  <groupId>com.github.labai</groupId>
-  <artifactId>deci-jvm</artifactId>
-  <version>0.1.0</version>
-</dependency>
-```
-</details>
+There are 2 main versions:
+
+### 1) Kotlin multiplatform 
+[deci](../../tree/main/deci) - kotlin multiplatform version adapted for JVM, JavaScript, and iOS, with additional optimizations for small numbers (tinyDec). 
+
+Version numbers: 2.x.x
 
 <details>
 <summary><strong>Gradle for kotlin multiplatform</strong></summary>
@@ -119,11 +110,42 @@ Add the Maven dependency:
 ```kotlin
 sourceSets {
     commonMain.dependencies {
-        implementation("com.github.labai:deci:0.1.0")
+        implementation("com.github.labai:deci:2.0.0")
     }
 }
 ```
 </details>
+
+<details>
+<summary><strong>JVM (maven)</strong></summary>
+
+```xml
+<dependency>
+  <groupId>com.github.labai</groupId>
+  <artifactId>deci-jvm</artifactId>
+  <version>2.0.0</version>
+</dependency>
+```
+</details>
+
+
+### 2) Simple JVM
+[deci-simple](../../tree/main/deci-simple) - simple JVM version.
+
+Maven only, version numbers: 0.x.x
+
+<details>
+<summary><strong>JVM (maven)</strong></summary>
+
+```xml
+<dependency>
+  <groupId>com.github.labai</groupId>
+  <artifactId>deci</artifactId>
+  <version>0.2.0</version>
+</dependency>
+```
+</details>
+
 
 ## deci.kt
 [more info](../../tree/main/deci) 
